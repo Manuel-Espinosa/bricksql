@@ -35,8 +35,15 @@ export interface OrderByClause {
   direction: 'ASC' | 'DESC'
 }
 
+export interface SelectedColumn {
+  id: string
+  table: string
+  column: string
+}
+
 export interface BuilderState {
   table: string | null
+  columns: SelectedColumn[]
   joins: JoinClause[]
   conditions: WhereCondition[]
   orderBy: OrderByClause | null
@@ -45,6 +52,7 @@ export interface BuilderState {
 
 export const EMPTY_STATE: BuilderState = {
   table: null,
+  columns: [],
   joins: [],
   conditions: [],
   orderBy: null,

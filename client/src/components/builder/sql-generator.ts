@@ -11,7 +11,12 @@ function quoteValue(op: WhereCondition['operator'], value: string): string {
 export function generateSQL(state: BuilderState): string {
   if (!state.table) return ''
 
-  const lines: string[] = [`SELECT *`, `FROM ${state.table}`]
+  const selectClause =
+    state.columns.length === 0
+      ? 'SELECT *'
+      : `SELECT ${state.columns.map((c) => `${c.table}.${c.column}`).join(', ')}`
+
+  const lines: string[] = [selectClause, `FROM ${state.table}`]
 
   for (const join of state.joins) {
     if (join.table && join.leftCol && join.rightCol) {

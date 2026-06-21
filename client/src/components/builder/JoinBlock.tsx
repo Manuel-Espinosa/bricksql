@@ -8,7 +8,7 @@ interface Props {
   connectionId: string
   fromTable: string
   allTables: string[]
-  fromColumns: string[]
+  availableLeftColumns: string[]
   onChange: (updated: JoinClause) => void
   onRemove: () => void
 }
@@ -21,7 +21,7 @@ export default function JoinBlock({
   connectionId,
   fromTable,
   allTables,
-  fromColumns,
+  availableLeftColumns,
   onChange,
   onRemove,
 }: Props) {
@@ -32,7 +32,6 @@ export default function JoinBlock({
   })
 
   const joinColumns = (joinColumnsQuery.data ?? []).map((c) => `${join.table}.${c.name}`)
-  const leftColumns = fromColumns.map((c) => `${fromTable}.${c}`)
 
   function update(patch: Partial<JoinClause>) {
     onChange({ ...join, ...patch })
@@ -63,7 +62,7 @@ export default function JoinBlock({
                 className={selectCls}
               >
                 <option value="">— left col —</option>
-                {leftColumns.map((c) => (
+                {availableLeftColumns.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>

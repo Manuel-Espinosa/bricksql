@@ -1,15 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueries } from '@tanstack/react-query'
 import { explorerApi } from '../../api'
 import { generateSQL } from './sql-generator'
 import { EMPTY_STATE } from './types'
-import type { BuilderState, WhereCondition, JoinClause } from './types'
+import type { BuilderState, WhereCondition, JoinClause, SelectedColumn } from './types'
 import FromBlock from './FromBlock'
 import WhereBlock from './WhereBlock'
 import JoinBlock from './JoinBlock'
 import OrderByBlock from './OrderByBlock'
 import LimitBlock from './LimitBlock'
+import SelectColumnBlock from './SelectColumnBlock'
 
 interface Props {
   connectionId: string
@@ -39,6 +40,22 @@ export default function BuilderMode({ connectionId, onSwitchToRaw, onSqlChange }
   })
 
   const fromColumns = (fromColumnsQuery.data ?? []).map((c) => c.name)
+
+  const joinedTableNames = [...new Set(state.joins.filter((j) => j.table).map((j) => j.table))]
+
+  const joinTableColumnQueries = useQueries({
+    queries: joinedTableNames.map((table) => ({
+      queryKey: ['columns', connectionId, table],
+      queryFn: () => explorerApi.describeTable(connectionId, table),
+    })),
+  })
+
+  const allColumns = [
+    ...(state.table ? fromColumns.map((c) => `${state.table}.${c}`) : []),
+    ...joinedTableNames.flatMap((table, i) =>
+      (joinTableColumnQueries[i].data ?? []).map((c) => `${table}.${c.name}`)
+    ),
+  ]
 
   // Auto-select first table when loaded
   useEffect(() => {
@@ -88,7 +105,30 @@ export default function BuilderMode({ connectionId, onSwitchToRaw, onSqlChange }
   }
 
   function removeJoin(id: string) {
-    update({ joins: state.joins.filter((j) => j.id !== id) })
+    const join = state.joins.find((j) => j.id === id)
+    const joins = state.joins.filter((j) => j.id !== id)
+    const columns = join?.table
+      ? state.columns.filter((c) => c.table !== join.table)
+      : state.columns
+    update({ joins, columns })
+  }
+
+  const availableTables = [
+    ...(state.table ? [state.table] : []),
+    ...state.joins.filter((j) => j.table).map((j) => j.table),
+  ]
+
+  function addColumn() {
+    const col: SelectedColumn = { id: uuidv4(), table: state.table ?? '', column: '' }
+    update({ columns: [...state.columns, col] })
+  }
+
+  function updateColumn(id: string, updated: SelectedColumn) {
+    update({ columns: state.columns.map((c) => (c.id === id ? updated : c)) })
+  }
+
+  function removeColumn(id: string) {
+    update({ columns: state.columns.filter((c) => c.id !== id) })
   }
 
   if (tablesQuery.isLoading) {
@@ -116,12 +156,38 @@ export default function BuilderMode({ connectionId, onSwitchToRaw, onSqlChange }
     <div className="flex flex-col h-full min-h-0">
       {/* Scrollable blocks area */}
       <div className="flex-1 overflow-y-auto min-h-0 p-3 space-y-1.5">
-        {/* SELECT * */}
+        {/* SELECT */}
         <div className="flex gap-0">
           <div className="w-0.5 bg-brick-700 shrink-0" />
           <div className="flex-1 bg-brick-900 border border-l-0 border-brick-800 px-3 py-2">
-            <span className="text-brick-500 text-xs uppercase tracking-widest">select</span>
-            <span className="text-copper-300 text-xs ml-3">*</span>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-brick-500 text-xs uppercase tracking-widest">select</span>
+              {hasTable && (
+                <button
+                  onClick={addColumn}
+                  disabled={!columnsReady}
+                  className="text-xs text-brick-400 hover:text-copper-500 disabled:opacity-40 transition-colors uppercase tracking-widest"
+                >
+                  + column
+                </button>
+              )}
+            </div>
+            {state.columns.length === 0 ? (
+              <span className="text-copper-300 text-xs">*</span>
+            ) : (
+              <div className="space-y-1.5">
+                {state.columns.map((col) => (
+                  <SelectColumnBlock
+                    key={col.id}
+                    item={col}
+                    connectionId={connectionId}
+                    availableTables={availableTables}
+                    onChange={(updated) => updateColumn(col.id, updated)}
+                    onRemove={() => removeColumn(col.id)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -136,7 +202,7 @@ export default function BuilderMode({ connectionId, onSwitchToRaw, onSqlChange }
             connectionId={connectionId}
             fromTable={state.table!}
             allTables={tables}
-            fromColumns={fromColumns}
+            availableLeftColumns={allColumns}
             onChange={(updated) => updateJoin(join.id, updated)}
             onRemove={() => removeJoin(join.id)}
           />
@@ -148,7 +214,7 @@ export default function BuilderMode({ connectionId, onSwitchToRaw, onSqlChange }
             key={cond.id}
             condition={cond}
             index={i}
-            columns={fromColumns}
+            columns={allColumns}
             onChange={(updated) => updateCondition(cond.id, updated)}
             onRemove={() => removeCondition(cond.id)}
           />
