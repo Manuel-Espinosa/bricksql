@@ -42,6 +42,18 @@ export class ConnectionsService {
 
   async testConnection(id: string): Promise<{ ok: boolean; message?: string }> {
     const conn = await this.findOne(id);
+    return this.testAdapter(conn);
+  }
+
+  async testPayload(
+    dto: CreateConnectionDto,
+  ): Promise<{ ok: boolean; message?: string }> {
+    return this.testAdapter({ id: '', ...dto });
+  }
+
+  private async testAdapter(
+    conn: ConnectionRecord,
+  ): Promise<{ ok: boolean; message?: string }> {
     const adapter = this.database.createAdapter(conn);
     try {
       await adapter.testConnection();

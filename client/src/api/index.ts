@@ -47,6 +47,8 @@ export const connectionsApi = {
   delete: (id: string) => api.delete<void>(`/connections/${id}`),
   test: (id: string) =>
     api.post<{ ok: boolean; message?: string }>(`/connections/${id}/test`),
+  testPayload: (data: Omit<Connection, 'id'>) =>
+    api.post<{ ok: boolean; message?: string }>('/connections/test', data),
   setDatabase: (id: string, database: string) =>
     api.patch<Connection>(`/connections/${id}/database`, { database }),
 }

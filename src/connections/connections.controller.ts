@@ -47,6 +47,11 @@ export class ConnectionsController {
     return this.connectionsService.remove(id);
   }
 
+  @Post('test')
+  testPayload(@Body() dto: CreateConnectionDto) {
+    return this.connectionsService.testPayload(dto);
+  }
+
   @Post(':id/test')
   testConnection(@Param('id') id: string) {
     return this.connectionsService.testConnection(id);
