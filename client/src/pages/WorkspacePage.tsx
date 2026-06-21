@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { connectionsApi, queryApi, savedQueriesApi, type QueryResult } from '../api'
 import TableExplorer from '../components/TableExplorer'
 import ResultsTable from '../components/ResultsTable'
@@ -24,7 +24,13 @@ export default function WorkspacePage() {
   const [running, setRunning] = useState(false)
   const [elapsed, setElapsed] = useState<number | undefined>()
   const [, setDesktopRight] = useState<Panel>('results')
+  const [mobileResultsExpanded, setMobileResultsExpanded] = useState(false)
+  const [saveOpen, setSaveOpen] = useState(false)
+  const [saveName, setSaveName] = useState('')
+  const [saving, setSaving] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const saveInputRef = useRef<HTMLInputElement>(null)
+  const queryClient = useQueryClient()
 
   const { data: connection } = useQuery({
     queryKey: ['connections', connectionId],
@@ -36,16 +42,19 @@ export default function WorkspacePage() {
     if (!sql.trim() || !connectionId) return
     setRunning(true)
     setError('')
+    setMobileResultsExpanded(false)
     const t0 = Date.now()
     try {
       const res = await queryApi.execute(connectionId, sql)
       setResult(res)
       setElapsed(Date.now() - t0)
-      setMobileTab('editor') // stay in editor, show results below
+      setMobileTab('editor')
       setDesktopRight('results')
+      setMobileResultsExpanded(true)
     } catch (err) {
       setError((err as Error).message)
       setResult(null)
+      setMobileResultsExpanded(true)
     } finally {
       setRunning(false)
     }
@@ -56,6 +65,30 @@ export default function WorkspacePage() {
       e.preventDefault()
       runQuery()
     }
+  }
+
+  function openSave() {
+    setSaveName('')
+    setSaveOpen(true)
+    setTimeout(() => saveInputRef.current?.focus(), 0)
+  }
+
+  async function saveQuery() {
+    if (!saveName.trim() || !sql.trim() || !connectionId) return
+    setSaving(true)
+    try {
+      await savedQueriesApi.create(connectionId, { name: saveName.trim(), sql })
+      queryClient.invalidateQueries({ queryKey: ['saved-queries', connectionId] })
+      setSaveOpen(false)
+      setSaveName('')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function handleSaveKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') saveQuery()
+    if (e.key === 'Escape') setSaveOpen(false)
   }
 
   function loadSql(query: string) {
@@ -145,6 +178,39 @@ export default function WorkspacePage() {
               </button>
             ))}
             <div className="flex-1" />
+            {saveOpen ? (
+              <div className="flex items-center border-l border-brick-800">
+                <input
+                  ref={saveInputRef}
+                  value={saveName}
+                  onChange={(e) => setSaveName(e.target.value)}
+                  onKeyDown={handleSaveKeyDown}
+                  placeholder="query name"
+                  className="bg-transparent text-cream-100 text-xs px-3 py-2 focus:outline-none placeholder:text-brick-600 w-36"
+                />
+                <button
+                  onClick={saveQuery}
+                  disabled={saving || !saveName.trim()}
+                  className="px-3 py-2 text-xs text-copper-500 hover:text-copper-400 disabled:text-brick-600 border-l border-brick-800 transition-colors"
+                >
+                  {saving ? '...' : '✓'}
+                </button>
+                <button
+                  onClick={() => setSaveOpen(false)}
+                  className="px-3 py-2 text-xs text-brick-500 hover:text-brick-400 border-l border-brick-800 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={openSave}
+                disabled={!sql.trim()}
+                className="px-4 py-2 text-xs uppercase tracking-widest text-brick-400 hover:text-brick-300 disabled:text-brick-600 border-l border-brick-800 transition-colors"
+              >
+                save
+              </button>
+            )}
             <button
               onClick={runQuery}
               disabled={running || !sql.trim()}
@@ -231,35 +297,88 @@ export default function WorkspacePage() {
               </div>
 
               {/* Editor */}
-              <div className="flex-1 relative min-h-0">
-                {editorMode === 'raw' && (
-                  <textarea
-                    ref={textareaRef}
-                    value={sql}
-                    onChange={(e) => setSql(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="SELECT * FROM ..."
-                    className="absolute inset-0 w-full h-full bg-transparent text-cream-100 text-xs p-4 resize-none focus:outline-none placeholder:text-brick-600 leading-relaxed"
-                    spellCheck={false}
-                  />
-                )}
-                {editorMode === 'builder' && (
-                  <BuilderMode connectionId={connectionId!} onSwitchToRaw={(s) => { setSql(s); setEditorMode('raw') }} onSqlChange={setSql} />
-                )}
-                {editorMode === 'ai' && (
-                  <AiPlaceholder connectionId={connectionId!} onSqlGenerated={loadSql} />
-                )}
-              </div>
+              {!mobileResultsExpanded && (
+                <div className="flex-1 relative min-h-0">
+                  {editorMode === 'raw' && (
+                    <textarea
+                      ref={textareaRef}
+                      value={sql}
+                      onChange={(e) => setSql(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="SELECT * FROM ..."
+                      className="absolute inset-0 w-full h-full bg-transparent text-cream-100 text-xs p-4 resize-none focus:outline-none placeholder:text-brick-600 leading-relaxed"
+                      spellCheck={false}
+                    />
+                  )}
+                  {editorMode === 'builder' && (
+                    <BuilderMode connectionId={connectionId!} onSwitchToRaw={(s) => { setSql(s); setEditorMode('raw') }} onSqlChange={setSql} />
+                  )}
+                  {editorMode === 'ai' && (
+                    <AiPlaceholder connectionId={connectionId!} onSqlGenerated={loadSql} />
+                  )}
+                </div>
+              )}
 
-              {/* Run button */}
-              <div className="border-t border-brick-800 px-3 py-2 shrink-0">
-                <button
-                  onClick={runQuery}
-                  disabled={running || !sql.trim()}
-                  className="w-full py-2.5 text-xs uppercase tracking-widest bg-copper-500 hover:bg-copper-400 disabled:bg-brick-800 disabled:text-brick-600 text-brick-950 font-medium transition-colors"
-                >
-                  {running ? 'running...' : 'run query'}
-                </button>
+              {/* Results toggle + content */}
+              {(error || result) && (
+                <>
+                  <button
+                    onClick={() => setMobileResultsExpanded((v) => !v)}
+                    className="border-t border-brick-800 px-3 py-2 flex items-center justify-between shrink-0 w-full text-left hover:bg-brick-800/30 transition-colors"
+                  >
+                    <span className="text-brick-400 text-xs uppercase tracking-widest">results</span>
+                    <span className="text-brick-500 text-xs">{mobileResultsExpanded ? '▴ show editor' : '▾ expand'}</span>
+                  </button>
+                  <div className={`overflow-auto shrink-0 ${mobileResultsExpanded ? 'flex-1' : 'max-h-48'}`}>
+                    {error && <div className="p-3 text-danger-400 text-xs">{error}</div>}
+                    {result && <ResultsTable result={result} elapsed={elapsed} />}
+                  </div>
+                </>
+              )}
+
+              {/* Save + Run */}
+              <div className="border-t border-brick-800 px-3 py-2 shrink-0 flex flex-col gap-2">
+                {saveOpen && (
+                  <div className="flex gap-2">
+                    <input
+                      ref={saveInputRef}
+                      value={saveName}
+                      onChange={(e) => setSaveName(e.target.value)}
+                      onKeyDown={handleSaveKeyDown}
+                      placeholder="query name"
+                      className="flex-1 bg-brick-900 border border-brick-700 text-cream-100 text-xs px-2 py-1.5 focus:outline-none focus:border-copper-500 placeholder:text-brick-600"
+                    />
+                    <button
+                      onClick={saveQuery}
+                      disabled={saving || !saveName.trim()}
+                      className="px-3 py-1.5 text-xs text-copper-500 border border-brick-700 hover:border-copper-500 disabled:text-brick-600 transition-colors"
+                    >
+                      {saving ? '...' : '✓'}
+                    </button>
+                    <button
+                      onClick={() => setSaveOpen(false)}
+                      className="px-3 py-1.5 text-xs text-brick-500 border border-brick-700 transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={openSave}
+                    disabled={!sql.trim()}
+                    className="py-2.5 px-4 text-xs uppercase tracking-widest border border-brick-700 text-brick-400 hover:border-brick-500 hover:text-cream-200 disabled:opacity-40 transition-colors"
+                  >
+                    save
+                  </button>
+                  <button
+                    onClick={runQuery}
+                    disabled={running || !sql.trim()}
+                    className="flex-1 py-2.5 text-xs uppercase tracking-widest bg-copper-500 hover:bg-copper-400 disabled:bg-brick-800 disabled:text-brick-600 text-brick-950 font-medium transition-colors"
+                  >
+                    {running ? 'running...' : 'run query'}
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -268,16 +387,6 @@ export default function WorkspacePage() {
             <SavedQueriesPanel connectionId={connectionId!} currentSql={sql} onLoad={loadSql} />
           )}
         </div>
-
-        {/* Error / Results above bottom tabs */}
-        {mobileTab === 'editor' && (error || result) && (
-          <div className="border-t border-brick-800 max-h-48 overflow-auto shrink-0">
-            {error && (
-              <div className="p-3 text-danger-400 text-xs">{error}</div>
-            )}
-            {result && <ResultsTable result={result} elapsed={elapsed} />}
-          </div>
-        )}
 
         {/* Bottom tab bar */}
         <nav className="border-t border-brick-800 flex shrink-0">
