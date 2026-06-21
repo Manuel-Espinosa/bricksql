@@ -1,16 +1,22 @@
-import { Body, Controller, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { AiService } from './ai.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 class GenerateQueryDto {
   prompt: string;
-  model?: string;
+  model: string;
 }
 
 @UseGuards(JwtAuthGuard)
 @Controller('api/ai')
 export class AiController {
   constructor(private readonly ai: AiService) {}
+
+  @Get('models')
+  async models(): Promise<{ models: string[] }> {
+    const models = await this.ai.listModels();
+    return { models };
+  }
 
   @Post(':connectionId/generate')
   async generate(

@@ -11,7 +11,6 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       DATA_DIR: /data
       OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped

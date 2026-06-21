@@ -436,21 +436,37 @@ function AiMode({
   onSqlGenerated: (sql: string) => void
 }) {
   const [prompt, setPrompt] = useState('')
-  const [model, setModel] = useState('llama3')
+  const [model, setModel] = useState('')
   const [generating, setGenerating] = useState(false)
   const [generatedSql, setGeneratedSql] = useState('')
-  const [error, setError] = useState('')
+  const [genError, setGenError] = useState('')
+
+  const { data: modelsData, isLoading: loadingModels, error: modelsError } = useQuery({
+    queryKey: ['ai-models'],
+    queryFn: () => aiApi.models(),
+    retry: false,
+  })
+
+  const models = modelsData?.models ?? []
+
+  // Set first model once loaded
+  useState(() => {
+    if (models.length > 0 && !model) setModel(models[0])
+  })
+
+  // Keep selection valid when models arrive
+  const selectedModel = models.includes(model) ? model : (models[0] ?? '')
 
   async function generate() {
-    if (!prompt.trim()) return
+    if (!prompt.trim() || !selectedModel) return
     setGenerating(true)
-    setError('')
+    setGenError('')
     setGeneratedSql('')
     try {
-      const res = await aiApi.generate(connectionId, prompt.trim(), model.trim() || undefined)
+      const res = await aiApi.generate(connectionId, prompt.trim(), selectedModel)
       setGeneratedSql(res.sql)
     } catch (err) {
-      setError((err as Error).message)
+      setGenError((err as Error).message)
     } finally {
       setGenerating(false)
     }
@@ -475,9 +491,9 @@ function AiMode({
         disabled={generating}
       />
 
-      {error && (
+      {genError && (
         <div className="px-4 py-2 text-danger-400 text-xs border-t border-danger-500/20 bg-danger-500/5">
-          {error}
+          {genError}
         </div>
       )}
 
@@ -499,15 +515,28 @@ function AiMode({
 
       <div className="border-t border-brick-800 flex items-center shrink-0">
         <span className="text-brick-600 text-xs px-3 py-2 shrink-0">model</span>
-        <input
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
-          className="bg-transparent text-cream-200 text-xs py-2 px-1 focus:outline-none w-28 border-r border-brick-800"
-          spellCheck={false}
-        />
+        {loadingModels ? (
+          <span className="text-brick-600 text-xs px-2 py-2">loading...</span>
+        ) : modelsError || models.length === 0 ? (
+          <span className="text-danger-400 text-xs px-2 py-2">
+            {models.length === 0 ? 'no models — is Ollama running?' : 'ollama unreachable'}
+          </span>
+        ) : (
+          <select
+            value={selectedModel}
+            onChange={(e) => setModel(e.target.value)}
+            className="bg-transparent text-cream-200 text-xs py-2 px-1 focus:outline-none border-r border-brick-800 cursor-pointer"
+          >
+            {models.map((m) => (
+              <option key={m} value={m} className="bg-brick-900">
+                {m}
+              </option>
+            ))}
+          </select>
+        )}
         <button
           onClick={generate}
-          disabled={generating || !prompt.trim()}
+          disabled={generating || !prompt.trim() || !selectedModel}
           className="ml-auto px-4 py-2 text-xs uppercase tracking-widest text-copper-500 hover:text-copper-400 disabled:text-brick-600 transition-colors font-medium"
         >
           {generating ? 'generating...' : 'generate  ⌘↵'}

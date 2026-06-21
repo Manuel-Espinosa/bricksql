@@ -6,33 +6,43 @@ interface OllamaChatResponse {
   message: { role: string; content: string };
 }
 
+interface OllamaTagsResponse {
+  models: { name: string }[];
+}
+
 @Injectable()
 export class AiService {
   private readonly ollamaUrl: string;
-  private readonly defaultModel: string;
 
   constructor(
     private readonly explorer: ExplorerService,
     private readonly config: ConfigService,
   ) {
     this.ollamaUrl = this.config.get<string>('OLLAMA_URL', 'http://host.docker.internal:11434');
-    this.defaultModel = this.config.get<string>('OLLAMA_MODEL', 'llama3');
+  }
+
+  async listModels(): Promise<string[]> {
+    const response = await fetch(`${this.ollamaUrl}/api/tags`);
+    if (!response.ok) {
+      throw new Error(`Ollama unreachable: ${response.status}`);
+    }
+    const data = (await response.json()) as OllamaTagsResponse;
+    return data.models.map((m) => m.name);
   }
 
   async generateQuery(
     connectionId: string,
     userPrompt: string,
-    model?: string,
+    model: string,
   ): Promise<string> {
     const ddl = await this.buildSchemaDdl(connectionId);
     const systemPrompt = this.buildSystemPrompt(ddl);
-    const targetModel = model ?? this.defaultModel;
 
     const response = await fetch(`${this.ollamaUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: targetModel,
+        model,
         stream: false,
         messages: [
           { role: 'system', content: systemPrompt },

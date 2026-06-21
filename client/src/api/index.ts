@@ -73,7 +73,8 @@ export const queryApi = {
 
 // AI
 export const aiApi = {
-  generate: (connectionId: string, prompt: string, model?: string) =>
+  models: () => api.get<{ models: string[] }>('/ai/models'),
+  generate: (connectionId: string, prompt: string, model: string) =>
     api.post<{ sql: string }>(`/ai/${connectionId}/generate`, { prompt, model }),
 }
 
