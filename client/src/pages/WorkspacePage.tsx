@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { connectionsApi, queryApi, savedQueriesApi, type QueryResult } from '../api'
+import { connectionsApi, queryApi, savedQueriesApi, aiApi, type QueryResult } from '../api'
 import TableExplorer from '../components/TableExplorer'
 import ResultsTable from '../components/ResultsTable'
 import BuilderMode from '../components/builder/BuilderMode'
@@ -252,7 +252,7 @@ export default function WorkspacePage() {
               <BuilderMode connectionId={connectionId!} onSwitchToRaw={(s) => { setSql(s); setEditorMode('raw') }} onSqlChange={setSql} />
             )}
             {editorMode === 'ai' && (
-              <AiPlaceholder connectionId={connectionId!} onSqlGenerated={loadSql} />
+              <AiMode connectionId={connectionId!} onSqlGenerated={loadSql} />
             )}
           </div>
         </div>
@@ -329,7 +329,7 @@ export default function WorkspacePage() {
                     <BuilderMode connectionId={connectionId!} onSwitchToRaw={(s) => { setSql(s); setEditorMode('raw') }} onSqlChange={setSql} />
                   )}
                   {editorMode === 'ai' && (
-                    <AiPlaceholder connectionId={connectionId!} onSqlGenerated={loadSql} />
+                    <AiMode connectionId={connectionId!} onSqlGenerated={loadSql} />
                   )}
                 </div>
               )}
@@ -428,20 +428,91 @@ export default function WorkspacePage() {
 }
 
 
-function AiPlaceholder({
-  connectionId: _connectionId,
-  onSqlGenerated: _onSqlGenerated,
+function AiMode({
+  connectionId,
+  onSqlGenerated,
 }: {
   connectionId: string
   onSqlGenerated: (sql: string) => void
 }) {
+  const [prompt, setPrompt] = useState('')
+  const [model, setModel] = useState('llama3')
+  const [generating, setGenerating] = useState(false)
+  const [generatedSql, setGeneratedSql] = useState('')
+  const [error, setError] = useState('')
+
+  async function generate() {
+    if (!prompt.trim()) return
+    setGenerating(true)
+    setError('')
+    setGeneratedSql('')
+    try {
+      const res = await aiApi.generate(connectionId, prompt.trim(), model.trim() || undefined)
+      setGeneratedSql(res.sql)
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault()
+      generate()
+    }
+  }
+
   return (
-    <div className="p-6 text-center">
-      <p className="text-brick-500 text-xs mb-2">ai mode — prompt to sql</p>
-      <p className="text-brick-600 text-xs">
-        configure <code className="text-copper-500">OLLAMA_URL</code> and{' '}
-        <code className="text-copper-500">OLLAMA_MODEL</code> to enable
-      </p>
+    <div className="absolute inset-0 flex flex-col">
+      <textarea
+        value={prompt}
+        onChange={(e) => setPrompt(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="describe what you want to query..."
+        className="flex-1 bg-transparent text-cream-100 text-xs p-4 resize-none focus:outline-none placeholder:text-brick-600 leading-relaxed min-h-0"
+        spellCheck={false}
+        disabled={generating}
+      />
+
+      {error && (
+        <div className="px-4 py-2 text-danger-400 text-xs border-t border-danger-500/20 bg-danger-500/5">
+          {error}
+        </div>
+      )}
+
+      {generatedSql && (
+        <div className="border-t border-brick-800 flex flex-col">
+          <pre className="text-cream-100 text-xs p-4 overflow-x-auto leading-relaxed max-h-40 bg-brick-900/40">
+            {generatedSql}
+          </pre>
+          <div className="border-t border-brick-800 px-3 py-2 flex justify-end">
+            <button
+              onClick={() => onSqlGenerated(generatedSql)}
+              className="text-xs text-copper-500 hover:text-copper-400 uppercase tracking-widest transition-colors"
+            >
+              use query →
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="border-t border-brick-800 flex items-center shrink-0">
+        <span className="text-brick-600 text-xs px-3 py-2 shrink-0">model</span>
+        <input
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+          className="bg-transparent text-cream-200 text-xs py-2 px-1 focus:outline-none w-28 border-r border-brick-800"
+          spellCheck={false}
+        />
+        <button
+          onClick={generate}
+          disabled={generating || !prompt.trim()}
+          className="ml-auto px-4 py-2 text-xs uppercase tracking-widest text-copper-500 hover:text-copper-400 disabled:text-brick-600 transition-colors font-medium"
+        >
+          {generating ? 'generating...' : 'generate  ⌘↵'}
+        </button>
+      </div>
     </div>
   )
 }

@@ -71,6 +71,12 @@ export const queryApi = {
     api.post<QueryResult>(`/connections/${connectionId}/query`, { sql }),
 }
 
+// AI
+export const aiApi = {
+  generate: (connectionId: string, prompt: string, model?: string) =>
+    api.post<{ sql: string }>(`/ai/${connectionId}/generate`, { prompt, model }),
+}
+
 // Saved Queries
 export const savedQueriesApi = {
   list: (connectionId: string) =>
