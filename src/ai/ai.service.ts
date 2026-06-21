@@ -83,10 +83,12 @@ export class AiService {
 
   private buildSystemPrompt(ddl: string): string {
     return `You are a SQL expert. Generate a single SELECT SQL query that answers the user's request.
+
 Rules:
 - Return ONLY the SQL query, nothing else.
 - No markdown, no code blocks, no explanations.
 - Only SELECT statements — no INSERT, UPDATE, DELETE, or DDL.
+- If the user provides examples of column contents, JSON structures, or sample data, use them to write a more accurate query (e.g. to infer JSON field paths or implicit relationships).
 
 Database schema:
 ${ddl}`;

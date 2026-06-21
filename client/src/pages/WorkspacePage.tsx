@@ -490,6 +490,9 @@ function AiMode({
         spellCheck={false}
         disabled={generating}
       />
+      <p className="px-4 py-2 text-brick-600 text-[10px] border-t border-brick-800/50 leading-relaxed">
+        the model only sees table and column names — for JSON columns or non-obvious relationships, include the structure in your prompt
+      </p>
 
       {genError && (
         <div className="px-4 py-2 text-danger-400 text-xs border-t border-danger-500/20 bg-danger-500/5">
