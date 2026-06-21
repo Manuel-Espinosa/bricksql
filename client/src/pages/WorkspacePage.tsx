@@ -24,6 +24,7 @@ export default function WorkspacePage() {
   const [running, setRunning] = useState(false)
   const [elapsed, setElapsed] = useState<number | undefined>()
   const [, setDesktopRight] = useState<Panel>('results')
+  const [desktopLeft, setDesktopLeft] = useState<'tables' | 'saved'>('tables')
   const [mobileResultsExpanded, setMobileResultsExpanded] = useState(false)
   const [saveOpen, setSaveOpen] = useState(false)
   const [saveName, setSaveName] = useState('')
@@ -81,6 +82,7 @@ export default function WorkspacePage() {
       queryClient.invalidateQueries({ queryKey: ['saved-queries', connectionId] })
       setSaveOpen(false)
       setSaveName('')
+      setDesktopLeft('saved')
     } finally {
       setSaving(false)
     }
@@ -101,7 +103,7 @@ export default function WorkspacePage() {
   const hasDatabase = !!connection?.database
 
   return (
-    <div className="h-screen bg-brick-950 flex flex-col">
+    <div className="h-[100dvh] bg-brick-950 flex flex-col">
       {/* Topbar */}
       <header className="border-b border-brick-800 px-3 py-2 flex items-center gap-3 shrink-0">
         <button
@@ -139,20 +141,33 @@ export default function WorkspacePage() {
 
       {/* ─── Desktop layout (md+) ─── */}
       <div className="hidden md:flex flex-1 min-h-0">
-        {/* Left: Explorer */}
+        {/* Left: Explorer / Saved */}
         <aside className="w-56 border-r border-brick-800 flex flex-col shrink-0">
-          <div className="px-3 py-2 border-b border-brick-800 flex items-center justify-between">
-            <span className="text-brick-400 text-xs uppercase tracking-widest">
-              tables
-            </span>
+          <div className="border-b border-brick-800 flex shrink-0">
+            {(['tables', 'saved'] as const).map((panel) => (
+              <button
+                key={panel}
+                onClick={() => setDesktopLeft(panel)}
+                className={`flex-1 px-3 py-2 text-xs uppercase tracking-widest border-r border-brick-800 last:border-0 transition-colors ${
+                  desktopLeft === panel
+                    ? 'text-brick-300 bg-brick-900'
+                    : 'text-brick-500 hover:text-brick-400'
+                }`}
+              >
+                {panel}
+              </button>
+            ))}
           </div>
           <div className="flex-1 overflow-y-auto">
-            {connection && (
+            {desktopLeft === 'tables' && connection && (
               <TableExplorer
                 connectionId={connectionId!}
                 hasDatabase={hasDatabase}
                 onSelectTable={loadSql}
               />
+            )}
+            {desktopLeft === 'saved' && (
+              <SavedQueriesPanel connectionId={connectionId!} currentSql={sql} onLoad={loadSql} />
             )}
           </div>
         </aside>
