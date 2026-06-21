@@ -78,9 +78,9 @@ export default function ResultsTable({ result, elapsed }: Props) {
         <table className="w-full text-xs border-collapse min-w-max">
           <thead className="sticky top-0 bg-brick-900 z-10">
             <tr>
-              {result.columns.map((col) => (
+              {result.columns.map((col, colIdx) => (
                 <th
-                  key={col}
+                  key={colIdx}
                   className="text-left px-3 py-2 text-brick-400 uppercase tracking-widest font-normal border-b border-brick-800 whitespace-nowrap"
                 >
                   {col}
@@ -94,12 +94,12 @@ export default function ResultsTable({ result, elapsed }: Props) {
                 key={i}
                 className="border-b border-brick-800/50 hover:bg-brick-800/30 transition-colors"
               >
-                {result.columns.map((col) => {
+                {result.columns.map((col, colIdx) => {
                   const val = row[col]
                   const isNull = val === null || val === undefined
                   return (
                     <td
-                      key={col}
+                      key={colIdx}
                       className={`px-3 py-1.5 whitespace-nowrap max-w-xs truncate ${
                         isNull ? 'text-brick-600 italic' : 'text-cream-100'
                       }`}

@@ -168,7 +168,7 @@ export default function WorkspacePage() {
               />
             )}
             {editorMode === 'builder' && (
-              <BuilderMode connectionId={connectionId!} onSwitchToRaw={(s) => { setSql(s); setEditorMode('raw') }} />
+              <BuilderMode connectionId={connectionId!} onSwitchToRaw={(s) => { setSql(s); setEditorMode('raw') }} onSqlChange={setSql} />
             )}
             {editorMode === 'ai' && (
               <AiPlaceholder connectionId={connectionId!} onSqlGenerated={loadSql} />
@@ -244,7 +244,7 @@ export default function WorkspacePage() {
                   />
                 )}
                 {editorMode === 'builder' && (
-                  <BuilderMode connectionId={connectionId!} onSwitchToRaw={(s) => { setSql(s); setEditorMode('raw') }} />
+                  <BuilderMode connectionId={connectionId!} onSwitchToRaw={(s) => { setSql(s); setEditorMode('raw') }} onSqlChange={setSql} />
                 )}
                 {editorMode === 'ai' && (
                   <AiPlaceholder connectionId={connectionId!} onSqlGenerated={loadSql} />

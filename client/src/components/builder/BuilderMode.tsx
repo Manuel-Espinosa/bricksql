@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useQuery } from '@tanstack/react-query'
 import { explorerApi } from '../../api'
@@ -14,17 +14,14 @@ import LimitBlock from './LimitBlock'
 interface Props {
   connectionId: string
   onSwitchToRaw: (sql: string) => void
-}
-
-function newCondition(): WhereCondition {
-  return { id: uuidv4(), connector: 'AND', column: '', operator: '=', value: '' }
+  onSqlChange?: (sql: string) => void
 }
 
 function newJoin(): JoinClause {
   return { id: uuidv4(), table: '', leftCol: '', rightCol: '' }
 }
 
-export default function BuilderMode({ connectionId, onSwitchToRaw }: Props) {
+export default function BuilderMode({ connectionId, onSwitchToRaw, onSqlChange }: Props) {
   const [state, setState] = useState<BuilderState>(EMPTY_STATE)
   const [previewOpen, setPreviewOpen] = useState(false)
 
@@ -57,12 +54,21 @@ export default function BuilderMode({ connectionId, onSwitchToRaw }: Props) {
 
   const sql = generateSQL(state)
 
+  const prevSqlRef = useRef<string>('')
+  useEffect(() => {
+    if (sql !== prevSqlRef.current) {
+      prevSqlRef.current = sql
+      onSqlChange?.(sql)
+    }
+  }, [sql, onSqlChange])
+
   function update(patch: Partial<BuilderState>) {
     setState((s) => ({ ...s, ...patch }))
   }
 
-  function addCondition() {
-    update({ conditions: [...state.conditions, newCondition()] })
+  function addCondition(connector: 'AND' | 'OR' = 'AND') {
+    const cond: WhereCondition = { id: uuidv4(), connector, column: '', operator: '=', value: '' }
+    update({ conditions: [...state.conditions, cond] })
   }
 
   function updateCondition(id: string, updated: WhereCondition) {
@@ -170,7 +176,14 @@ export default function BuilderMode({ connectionId, onSwitchToRaw }: Props) {
         {/* Add block buttons */}
         {hasTable && (
           <div className="flex flex-wrap gap-2 pt-2">
-            <button onClick={addCondition} disabled={!columnsReady} className={btnCls}>+ where</button>
+            {state.conditions.length === 0 ? (
+              <button onClick={() => addCondition('AND')} disabled={!columnsReady} className={btnCls}>+ where</button>
+            ) : (
+              <>
+                <button onClick={() => addCondition('AND')} disabled={!columnsReady} className={btnCls}>+ and</button>
+                <button onClick={() => addCondition('OR')} disabled={!columnsReady} className={btnCls}>+ or</button>
+              </>
+            )}
             <button onClick={addJoin} disabled={!columnsReady} className={btnCls}>+ join</button>
             {!state.orderBy && (
               <button onClick={() => update({ orderBy: { column: '', direction: 'ASC' } })} disabled={!columnsReady} className={btnCls}>
