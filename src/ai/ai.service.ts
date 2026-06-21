@@ -56,7 +56,7 @@ export class AiService {
     }
 
     const data = (await response.json()) as OllamaChatResponse;
-    return data.message.content.trim();
+    return this.cleanSql(data.message.content);
   }
 
   private async buildSchemaDdl(connectionId: string): Promise<string> {
@@ -71,6 +71,14 @@ export class AiService {
       }),
     );
     return ddlStatements.join('\n\n');
+  }
+
+  private cleanSql(raw: string): string {
+    return raw
+      .replace(/^```(?:sql)?\s*/i, '')
+      .replace(/\s*```$/, '')
+      .trim()
+      .replace(/;$/, '');
   }
 
   private buildSystemPrompt(ddl: string): string {

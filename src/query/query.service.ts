@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { ConnectionsService } from '../connections/connections.service';
 import { DatabaseService } from '../database/database.service';
 import { QueryResult } from '../database/adapters/database-adapter.interface';
@@ -21,6 +21,8 @@ export class QueryService {
         ? this.ensureLimit(trimmed)
         : trimmed;
       return await adapter.executeQuery(finalSql);
+    } catch (err) {
+      throw new UnprocessableEntityException((err as Error).message);
     } finally {
       await adapter.close();
     }
