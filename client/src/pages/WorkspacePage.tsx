@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { connectionsApi, queryApi, savedQueriesApi, type QueryResult } from '../api'
 import TableExplorer from '../components/TableExplorer'
 import ResultsTable from '../components/ResultsTable'
+import BuilderMode from '../components/builder/BuilderMode'
 import { useAuth } from '../context/AuthContext'
 
 type Tab = 'explorer' | 'editor' | 'saved'
@@ -167,7 +168,7 @@ export default function WorkspacePage() {
               />
             )}
             {editorMode === 'builder' && (
-              <BuilderPlaceholder onSwitchToRaw={() => setEditorMode('raw')} />
+              <BuilderMode connectionId={connectionId!} onSwitchToRaw={(s) => { setSql(s); setEditorMode('raw') }} />
             )}
             {editorMode === 'ai' && (
               <AiPlaceholder connectionId={connectionId!} onSqlGenerated={loadSql} />
@@ -243,7 +244,7 @@ export default function WorkspacePage() {
                   />
                 )}
                 {editorMode === 'builder' && (
-                  <BuilderPlaceholder onSwitchToRaw={() => setEditorMode('raw')} />
+                  <BuilderMode connectionId={connectionId!} onSwitchToRaw={(s) => { setSql(s); setEditorMode('raw') }} />
                 )}
                 {editorMode === 'ai' && (
                   <AiPlaceholder connectionId={connectionId!} onSqlGenerated={loadSql} />
@@ -302,21 +303,6 @@ export default function WorkspacePage() {
   )
 }
 
-function BuilderPlaceholder({ onSwitchToRaw }: { onSwitchToRaw: () => void }) {
-  return (
-    <div className="p-6 text-center">
-      <p className="text-brick-500 text-xs mb-4">
-        builder mode — coming soon
-      </p>
-      <button
-        onClick={onSwitchToRaw}
-        className="text-xs text-copper-500 hover:text-copper-400 uppercase tracking-widest transition-colors"
-      >
-        switch to raw mode
-      </button>
-    </div>
-  )
-}
 
 function AiPlaceholder({
   connectionId: _connectionId,
