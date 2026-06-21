@@ -8,5 +8,6 @@ import { DatabaseModule } from '../database/database.module';
   imports: [ConnectionsModule, DatabaseModule],
   providers: [ExplorerService],
   controllers: [ExplorerController],
+  exports: [ExplorerService],
 })
 export class ExplorerModule {}

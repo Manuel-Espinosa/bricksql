@@ -9,6 +9,7 @@ import { ExplorerModule } from './explorer/explorer.module';
 import { QueryModule } from './query/query.module';
 import { SavedQueriesModule } from './saved-queries/saved-queries.module';
 import { StorageModule } from './storage/storage.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { StorageModule } from './storage/storage.module';
     ExplorerModule,
     QueryModule,
     SavedQueriesModule,
+    AiModule,
   ],
 })
 export class AppModule {}
