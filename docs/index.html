@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BrickSQL — Self-hosted SQL client</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:         #F8F7F4;
+      --text:       #111111;
+      --muted:      #777777;
+      --border:     #D8D5CE;
+      --accent:     #C1440E;
+      --accent-dim: rgba(193,68,14,0.08);
+      --term-bg:    #141414;
+      --term-text:  #E2E0DC;
+      --kw:         #79B8FF;
+      --fn:         #F97316;
+      --ok:         #4ADE80;
+      --cm:         #555555;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    /* nav */
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.25rem 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    .nav-logo span { color: var(--accent); }
+
+    .nav-links a {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.15s;
+    }
+
+    .nav-links a:hover { color: var(--text); }
+
+    /* hero */
+    .hero {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 5rem 2rem 3rem;
+    }
+
+    .hero-eyebrow {
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 1.25rem;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.25rem, 6vw, 3.75rem);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      margin-bottom: 1.25rem;
+    }
+
+    .hero-sub {
+      font-size: 1rem;
+      font-weight: 400;
+      color: var(--muted);
+      max-width: 520px;
+      margin-bottom: 2.5rem;
+      line-height: 1.7;
+    }
+
+    /* terminal */
+    .term {
+      background: var(--term-bg);
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 2.5rem;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .term-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .term-dot { width: 10px; height: 10px; border-radius: 50%; background: #333; }
+    .term-dot:nth-child(1) { background: #FF5F57; }
+    .term-dot:nth-child(2) { background: #FFBD2E; }
+    .term-dot:nth-child(3) { background: #28CA41; }
+
+    .term-label { font-size: 0.7rem; color: #555; margin-left: 0.5rem; }
+
+    .term-body {
+      padding: 1.5rem;
+      font-size: 0.88rem;
+      line-height: 2;
+      color: var(--term-text);
+    }
+
+    .kw { color: var(--kw); }
+    .fn { color: var(--fn); }
+    .cm { color: var(--cm); }
+    .ok { color: var(--ok); }
+
+    .term-result {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-top: 0.5rem;
+      font-size: 0.78rem;
+      color: var(--ok);
+    }
+
+    .term-result::before { content: '▶'; font-size: 0.6rem; }
+
+    /* CTA */
+    .cta {
+      display: inline-block;
+      background: var(--accent);
+      color: #fff;
+      padding: 0.75rem 1.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-decoration: none;
+      border-radius: 3px;
+      transition: background 0.15s;
+    }
+
+    .cta:hover { background: #a33a0b; }
+    .cta:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+    /* sections */
+    section {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 4rem 2rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .section-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 2rem;
+    }
+
+    /* features */
+    .feature {
+      display: grid;
+      grid-template-columns: 11rem 1fr;
+      gap: 1rem;
+      padding: 1rem 0;
+      border-bottom: 1px solid var(--border);
+      align-items: baseline;
+    }
+
+    .feature:last-child { border-bottom: none; }
+
+    .feature-key {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+
+    .feature-val { font-size: 0.88rem; color: var(--muted); line-height: 1.6; }
+
+    /* code blocks */
+    .code-block {
+      background: var(--term-bg);
+      border-radius: 4px;
+      padding: 1.5rem;
+      font-size: 0.83rem;
+      line-height: 1.9;
+      color: var(--term-text);
+      overflow-x: auto;
+      border: 1px solid rgba(255,255,255,0.05);
+      margin-bottom: 1rem;
+    }
+
+    /* config table */
+    .config-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+
+    .config-table th {
+      text-align: left;
+      padding: 0.6rem 0.75rem;
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .config-table td {
+      padding: 0.85rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+      line-height: 1.5;
+    }
+
+    .config-table tr:last-child td { border-bottom: none; }
+
+    code {
+      background: var(--accent-dim);
+      color: var(--accent);
+      padding: 0.1em 0.35em;
+      border-radius: 2px;
+      font-size: 0.9em;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 0.15em 0.45em;
+      border-radius: 2px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .badge-yes { background: rgba(193,68,14,0.12); color: var(--accent); }
+    .badge-no  { background: rgba(0,0,0,0.05); color: var(--muted); }
+
+    /* footer */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    footer a { color: var(--muted); text-decoration: underline; }
+    footer a:hover { color: var(--text); }
+
+    /* responsive */
+    @media (max-width: 640px) {
+      nav { padding: 1rem 1.25rem; }
+      .hero { padding: 3rem 1.25rem 2rem; }
+      section { padding: 2.5rem 1.25rem; }
+
+      .feature {
+        grid-template-columns: 1fr;
+        gap: 0.25rem;
+      }
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .hero-eyebrow { animation: fade-up 0.45s 0s ease both; }
+      .hero h1      { animation: fade-up 0.45s 0.07s ease both; }
+      .hero-sub     { animation: fade-up 0.45s 0.14s ease both; }
+      .term         { animation: fade-up 0.45s 0.21s ease both; }
+      .cta          { animation: fade-up 0.45s 0.28s ease both; }
+    }
+
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="#"><span>// </span>BrickSQL</a>
+  <div class="nav-links">
+    <a href="https://github.com/Manuel-Espinosa/bricksql" target="_blank" rel="noopener">GitHub ↗</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <p class="hero-eyebrow">Self-hosted &middot; No cloud &middot; No telemetry</p>
+  <h1>SQL.<br>From any device.</h1>
+  <p class="hero-sub">
+    A mobile-first SQL client for MySQL and PostgreSQL.<br>
+    Runs on your machine, on your network.
+  </p>
+
+  <div class="term">
+    <div class="term-bar">
+      <span class="term-dot"></span>
+      <span class="term-dot"></span>
+      <span class="term-dot"></span>
+      <span class="term-label">bricksql &mdash; raw mode</span>
+    </div>
+    <div class="term-body">
+      <span class="kw">SELECT</span> u.name, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> orders<br>
+      &nbsp;&nbsp;<span class="kw">FROM</span> users u<br>
+      &nbsp;&nbsp;<span class="kw">JOIN</span> orders o <span class="kw">ON</span> o.user_id = u.id<br>
+      &nbsp;&nbsp;<span class="kw">WHERE</span> u.active = <span class="fn">true</span><br>
+      &nbsp;<span class="kw">GROUP BY</span> u.name<br>
+      &nbsp;<span class="kw">ORDER BY</span> orders <span class="kw">DESC</span><br>
+      &nbsp;&nbsp;&nbsp;<span class="kw">LIMIT</span> <span class="fn">10</span>;<br>
+      <span class="term-result">10 rows &middot; 14 ms</span>
+    </div>
+  </div>
+
+  <a class="cta" href="#quick-start">Get started &rarr;</a>
+</div>
+
+<section>
+  <p class="section-label">What it does</p>
+
+  <div class="feature">
+    <span class="feature-key">Raw mode</span>
+    <span class="feature-val">Write SQL directly. <code>Ctrl+Enter</code> runs it.</span>
+  </div>
+  <div class="feature">
+    <span class="feature-key">Builder mode</span>
+    <span class="feature-val">Compose SELECT queries step-by-step &mdash; FROM, JOIN, WHERE, ORDER BY, LIMIT &mdash; without typing a character.</span>
+  </div>
+  <div class="feature">
+    <span class="feature-key">AI mode</span>
+    <span class="feature-val">Describe what you need in plain English. A local <a href="https://ollama.ai" target="_blank" rel="noopener" style="color:var(--muted)">Ollama</a> model writes the SQL. Nothing leaves your machine.</span>
+  </div>
+  <div class="feature">
+    <span class="feature-key">Saved queries</span>
+    <span class="feature-val">Name and persist queries per connection. They survive restarts.</span>
+  </div>
+  <div class="feature">
+    <span class="feature-key">Table explorer</span>
+    <span class="feature-val">Browse tables and columns for the active connection. Tap a table to load a SELECT stub into the editor.</span>
+  </div>
+  <div class="feature">
+    <span class="feature-key">CSV export</span>
+    <span class="feature-val">Download any result set as a CSV file.</span>
+  </div>
+</section>
+
+<section id="quick-start">
+  <p class="section-label">Quick start</p>
+
+  <div class="code-block"><span class="cm"># docker-compose.yml</span>
+<span class="kw">services</span>:
+  <span class="fn">bricksql</span>:
+    image: ghcr.io/manuel-espinosa/bricksql:latest
+    ports:
+      - <span class="fn">"3000:3000"</span>
+    volumes:
+      - bricksql-data:/data
+    environment:
+      <span class="kw">BRICKSQL_USER</span>: admin
+      <span class="kw">BRICKSQL_PASSWORD</span>: changeme
+      <span class="kw">JWT_SECRET</span>: change-this-to-a-random-secret
+    restart: unless-stopped
+
+<span class="kw">volumes</span>:
+  <span class="fn">bricksql-data</span>:</div>
+
+  <div class="code-block"><span class="cm">$ </span>docker compose up -d
+<span class="ok">&#10003; Container bricksql &nbsp;Started</span></div>
+
+  <p style="font-size:0.85rem; color:var(--muted);">Open <code>http://localhost:3000</code></p>
+</section>
+
+<section>
+  <p class="section-label">Configuration</p>
+  <table class="config-table">
+    <thead>
+      <tr>
+        <th>Variable</th>
+        <th>Required</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>BRICKSQL_USER</code></td>
+        <td><span class="badge badge-yes">yes</span></td>
+        <td>Username for login</td>
+      </tr>
+      <tr>
+        <td><code>BRICKSQL_PASSWORD</code></td>
+        <td><span class="badge badge-yes">yes</span></td>
+        <td>Password for login</td>
+      </tr>
+      <tr>
+        <td><code>JWT_SECRET</code></td>
+        <td><span class="badge badge-yes">yes</span></td>
+        <td>Secret used to sign auth tokens</td>
+      </tr>
+      <tr>
+        <td><code>PORT</code></td>
+        <td><span class="badge badge-no">no</span></td>
+        <td>Port to listen on (default: <code>3000</code>)</td>
+      </tr>
+      <tr>
+        <td><code>DATA_DIR</code></td>
+        <td><span class="badge badge-no">no</span></td>
+        <td>Path for JSON data storage (default: <code>/data</code>)</td>
+      </tr>
+      <tr>
+        <td><code>OLLAMA_URL</code></td>
+        <td><span class="badge badge-no">no</span></td>
+        <td>Ollama base URL to enable AI mode (e.g. <code>http://host.docker.internal:11434</code>)</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<footer>
+  <a href="https://github.com/Manuel-Espinosa/bricksql" target="_blank" rel="noopener">github.com/Manuel-Espinosa/bricksql</a>
+</footer>
+
+</body>
+</html>
