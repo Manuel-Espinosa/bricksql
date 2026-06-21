@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ExplorerService } from '../explorer/explorer.service';
+import { ConnectionsService } from '../connections/connections.service';
 
 interface OllamaChatResponse {
   message: { role: string; content: string };
@@ -16,6 +17,7 @@ export class AiService {
 
   constructor(
     private readonly explorer: ExplorerService,
+    private readonly connections: ConnectionsService,
     private readonly config: ConfigService,
   ) {
     this.ollamaUrl = this.config.get<string>('OLLAMA_URL', 'http://host.docker.internal:11434');
@@ -35,8 +37,9 @@ export class AiService {
     userPrompt: string,
     model: string,
   ): Promise<string> {
+    const conn = await this.connections.findOne(connectionId);
     const ddl = await this.buildSchemaDdl(connectionId);
-    const systemPrompt = this.buildSystemPrompt(ddl);
+    const systemPrompt = this.buildSystemPrompt(ddl, conn.engine);
 
     const response = await fetch(`${this.ollamaUrl}/api/chat`, {
       method: 'POST',
@@ -81,16 +84,18 @@ export class AiService {
       .replace(/;$/, '');
   }
 
-  private buildSystemPrompt(ddl: string): string {
-    return `You are a SQL expert. Generate a single SELECT SQL query that answers the user's request.
+  private buildSystemPrompt(ddl: string, engine: string): string {
+    const dialect = engine === 'postgres' ? 'PostgreSQL' : 'MySQL';
+    return `You are a ${dialect} expert. Generate a single SELECT SQL query that answers the user's request.
 
 Rules:
+- Use only ${dialect} syntax and functions.
 - Return ONLY the SQL query, nothing else.
 - No markdown, no code blocks, no explanations.
 - Only SELECT statements — no INSERT, UPDATE, DELETE, or DDL.
 - If the user provides examples of column contents, JSON structures, or sample data, use them to write a more accurate query (e.g. to infer JSON field paths or implicit relationships).
 
-Database schema:
+Database schema (${dialect}):
 ${ddl}`;
   }
 }
