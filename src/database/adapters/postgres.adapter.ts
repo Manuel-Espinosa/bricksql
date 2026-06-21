@@ -79,23 +79,29 @@ export class PostgresAdapter implements DatabaseAdapter {
 
   async executeQuery(sql: string): Promise<QueryResult> {
     const client = await this.getClient();
-    const result = await client.query(sql);
+    const result = await client.query({ text: sql, rowMode: 'array' });
 
     if (result.fields && result.fields.length > 0) {
-      const columns = result.fields.map((f) => f.name);
-      const rows = result.rows.map((r) => {
+      const nameCounts = new Map<string, number>();
+      result.fields.forEach((f) => nameCounts.set(f.name, (nameCounts.get(f.name) ?? 0) + 1));
+
+      const nameOccurrence = new Map<string, number>();
+      const columns = result.fields.map((f) => {
+        if ((nameCounts.get(f.name) ?? 0) <= 1) return f.name;
+        const n = (nameOccurrence.get(f.name) ?? 0) + 1;
+        nameOccurrence.set(f.name, n);
+        return `${f.name}_${n}`;
+      });
+
+      const rows = (result.rows as unknown[][]).map((r) => {
         const row: Record<string, unknown> = {};
-        columns.forEach((col) => (row[col] = r[col]));
+        columns.forEach((col, i) => (row[col] = r[i]));
         return row;
       });
       return { columns, rows };
     }
 
-    return {
-      columns: [],
-      rows: [],
-      affectedRows: result.rowCount ?? 0,
-    };
+    return { columns: [], rows: [], affectedRows: result.rowCount ?? 0 };
   }
 
   async close(): Promise<void> {

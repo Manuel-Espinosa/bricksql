@@ -70,24 +70,27 @@ export class MysqlAdapter implements DatabaseAdapter {
 
   async executeQuery(sql: string): Promise<QueryResult> {
     const conn = await this.getConnection();
-    const [result, fields] = await conn.query(sql);
+    const [result, fields] = await conn.query({ sql, rowsAsArray: true });
 
     if (Array.isArray(result)) {
-      const columns = fields?.map((f) => f.name) ?? [];
-      const rows = (result as mysql.RowDataPacket[]).map((r) => {
+      const nameCounts = new Map<string, number>();
+      (fields ?? []).forEach((f) => nameCounts.set(f.name, (nameCounts.get(f.name) ?? 0) + 1));
+
+      const columns = (fields ?? []).map((f) =>
+        (nameCounts.get(f.name) ?? 0) > 1 ? `${f.table}.${f.name}` : f.name,
+      );
+
+      const valueRows = result as unknown as unknown[][];
+      const rows = valueRows.map((r) => {
         const row: Record<string, unknown> = {};
-        columns.forEach((col) => (row[col] = r[col]));
+        columns.forEach((col, i) => (row[col] = r[i]));
         return row;
       });
       return { columns, rows };
     }
 
     const okResult = result as mysql.OkPacket;
-    return {
-      columns: [],
-      rows: [],
-      affectedRows: okResult.affectedRows,
-    };
+    return { columns: [], rows: [], affectedRows: okResult.affectedRows };
   }
 
   async close(): Promise<void> {
