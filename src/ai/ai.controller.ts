@@ -1,11 +1,7 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { AiService } from './ai.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-
-class GenerateQueryDto {
-  prompt: string;
-  model: string;
-}
+import { GenerateQueryDto } from './dto/generate-query.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('ai')
