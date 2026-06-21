@@ -8,7 +8,7 @@ class GenerateQueryDto {
 }
 
 @UseGuards(JwtAuthGuard)
-@Controller('api/ai')
+@Controller('ai')
 export class AiController {
   constructor(private readonly ai: AiService) {}
 

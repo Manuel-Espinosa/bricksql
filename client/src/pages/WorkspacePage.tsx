@@ -517,10 +517,10 @@ function AiMode({
         <span className="text-brick-600 text-xs px-3 py-2 shrink-0">model</span>
         {loadingModels ? (
           <span className="text-brick-600 text-xs px-2 py-2">loading...</span>
-        ) : modelsError || models.length === 0 ? (
-          <span className="text-danger-400 text-xs px-2 py-2">
-            {models.length === 0 ? 'no models — is Ollama running?' : 'ollama unreachable'}
-          </span>
+        ) : modelsError ? (
+          <span className="text-danger-400 text-xs px-2 py-2">ollama unreachable</span>
+        ) : models.length === 0 ? (
+          <span className="text-brick-500 text-xs px-2 py-2">no models installed</span>
         ) : (
           <select
             value={selectedModel}
