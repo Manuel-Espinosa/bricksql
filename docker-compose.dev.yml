@@ -1,0 +1,36 @@
+services:
+  backend:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/client
+      - bricksql-dev-data:/data
+    ports:
+      - "${PORT_BACK:-3000}:3000"
+    environment:
+      BRICKSQL_USER: ${BRICKSQL_USER:-admin}
+      BRICKSQL_PASSWORD: ${BRICKSQL_PASSWORD:-changeme}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-prod}
+      DATA_DIR: /data
+      PORT: 3000
+      NODE_ENV: development
+    command: sh -c "npm install && npm run start:dev"
+
+  frontend:
+    image: node:22-alpine
+    working_dir: /app/client
+    volumes:
+      - ./client:/app/client
+      - /app/client/node_modules
+    ports:
+      - "${PORT_FRONT:-5173}:5173"
+    environment:
+      VITE_API_URL: http://backend:3000
+    command: sh -c "npm install && npm run dev -- --host"
+    depends_on:
+      - backend
+
+volumes:
+  bricksql-dev-data:

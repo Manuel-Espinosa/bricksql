@@ -1,0 +1,16 @@
+services:
+  bricksql:
+    build: .
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - bricksql-data:/data
+    environment:
+      BRICKSQL_USER: ${BRICKSQL_USER:?BRICKSQL_USER is required}
+      BRICKSQL_PASSWORD: ${BRICKSQL_PASSWORD:?BRICKSQL_PASSWORD is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      DATA_DIR: /data
+    restart: unless-stopped
+
+volumes:
+  bricksql-data:

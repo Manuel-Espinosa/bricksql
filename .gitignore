@@ -2,6 +2,9 @@
 /dist
 /node_modules
 /build
+/client/node_modules
+/client/dist
+/data
 
 # Logs
 logs
