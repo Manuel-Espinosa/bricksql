@@ -29,6 +29,8 @@ export default function WorkspacePage() {
   const [saveOpen, setSaveOpen] = useState(false)
   const [saveName, setSaveName] = useState('')
   const [saving, setSaving] = useState(false)
+  const [aiPrompt, setAiPrompt] = useState('')
+  const [aiGeneratedSql, setAiGeneratedSql] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const saveInputRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
@@ -252,7 +254,7 @@ export default function WorkspacePage() {
               <BuilderMode connectionId={connectionId!} onSwitchToRaw={(s) => { setSql(s); setEditorMode('raw') }} onSqlChange={setSql} />
             )}
             {editorMode === 'ai' && (
-              <AiMode connectionId={connectionId!} onSqlGenerated={loadSql} />
+              <AiMode connectionId={connectionId!} onSqlGenerated={loadSql} prompt={aiPrompt} onPromptChange={setAiPrompt} generatedSql={aiGeneratedSql} onGeneratedSqlChange={setAiGeneratedSql} />
             )}
           </div>
         </div>
@@ -329,7 +331,7 @@ export default function WorkspacePage() {
                     <BuilderMode connectionId={connectionId!} onSwitchToRaw={(s) => { setSql(s); setEditorMode('raw') }} onSqlChange={setSql} />
                   )}
                   {editorMode === 'ai' && (
-                    <AiMode connectionId={connectionId!} onSqlGenerated={loadSql} />
+                    <AiMode connectionId={connectionId!} onSqlGenerated={loadSql} prompt={aiPrompt} onPromptChange={setAiPrompt} generatedSql={aiGeneratedSql} onGeneratedSqlChange={setAiGeneratedSql} />
                   )}
                 </div>
               )}
@@ -431,14 +433,20 @@ export default function WorkspacePage() {
 function AiMode({
   connectionId,
   onSqlGenerated,
+  prompt,
+  onPromptChange,
+  generatedSql,
+  onGeneratedSqlChange,
 }: {
   connectionId: string
   onSqlGenerated: (sql: string) => void
+  prompt: string
+  onPromptChange: (v: string) => void
+  generatedSql: string
+  onGeneratedSqlChange: (v: string) => void
 }) {
-  const [prompt, setPrompt] = useState('')
   const [model, setModel] = useState('')
   const [generating, setGenerating] = useState(false)
-  const [generatedSql, setGeneratedSql] = useState('')
   const [genError, setGenError] = useState('')
 
   const { data: modelsData, isLoading: loadingModels, error: modelsError } = useQuery({
@@ -448,23 +456,16 @@ function AiMode({
   })
 
   const models = modelsData?.models ?? []
-
-  // Set first model once loaded
-  useState(() => {
-    if (models.length > 0 && !model) setModel(models[0])
-  })
-
-  // Keep selection valid when models arrive
   const selectedModel = models.includes(model) ? model : (models[0] ?? '')
 
   async function generate() {
     if (!prompt.trim() || !selectedModel) return
     setGenerating(true)
     setGenError('')
-    setGeneratedSql('')
+    onGeneratedSqlChange('')
     try {
       const res = await aiApi.generate(connectionId, prompt.trim(), selectedModel)
-      setGeneratedSql(res.sql)
+      onGeneratedSqlChange(res.sql)
     } catch (err) {
       setGenError((err as Error).message)
     } finally {
@@ -483,7 +484,7 @@ function AiMode({
     <div className="absolute inset-0 flex flex-col">
       <textarea
         value={prompt}
-        onChange={(e) => setPrompt(e.target.value)}
+        onChange={(e) => onPromptChange(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder="describe what you want to query..."
         className="flex-1 bg-transparent text-cream-100 text-xs p-4 resize-none focus:outline-none placeholder:text-brick-600 leading-relaxed min-h-0"
