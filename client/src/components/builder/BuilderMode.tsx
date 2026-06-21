@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { v4 as uuidv4 } from 'uuid'
 import { explorerApi } from '../../api'
 import { generateSQL } from './sql-generator'
 import { EMPTY_STATE } from './types'
@@ -17,11 +16,11 @@ interface Props {
 }
 
 function newCondition(): WhereCondition {
-  return { id: uuidv4(), connector: 'AND', column: '', operator: '=', value: '' }
+  return { id: crypto.randomUUID(), connector: 'AND', column: '', operator: '=', value: '' }
 }
 
 function newJoin(): JoinClause {
-  return { id: uuidv4(), table: '', leftCol: '', rightCol: '' }
+  return { id: crypto.randomUUID(), table: '', leftCol: '', rightCol: '' }
 }
 
 export default function BuilderMode({ connectionId, onSwitchToRaw }: Props) {
