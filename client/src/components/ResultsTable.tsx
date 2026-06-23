@@ -1,5 +1,11 @@
 import type { QueryResult } from '../api'
 
+function formatCell(val: unknown): string {
+  if (val === null || val === undefined) return ''
+  if (typeof val === 'object') return JSON.stringify(val)
+  return String(val)
+}
+
 interface Props {
   result: QueryResult
   elapsed?: number
@@ -10,7 +16,7 @@ function toCsv(result: QueryResult): string {
   const rows = result.rows.map((row) =>
     result.columns
       .map((col) => {
-        const val = String(row[col] ?? '')
+        const val = formatCell(row[col])
         return val.includes(',') || val.includes('"') || val.includes('\n')
           ? `"${val.replace(/"/g, '""')}"`
           : val
@@ -105,9 +111,9 @@ export default function ResultsTable({ result, elapsed }: Props) {
                       className={`px-3 py-1.5 whitespace-nowrap max-w-xs truncate ${
                         isNull ? 'text-brick-600 italic' : 'text-cream-100'
                       }`}
-                      title={isNull ? 'NULL' : String(val)}
+                      title={isNull ? 'NULL' : formatCell(val)}
                     >
-                      {isNull ? 'NULL' : String(val)}
+                      {isNull ? 'NULL' : formatCell(val)}
                     </td>
                   )
                 })}
