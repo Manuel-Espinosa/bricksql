@@ -97,52 +97,70 @@
       line-height: 1.7;
     }
 
-    /* terminal */
-    .term {
-      background: var(--term-bg);
-      border-radius: 6px;
-      overflow: hidden;
-      margin-bottom: 2.5rem;
-      border: 1px solid rgba(255,255,255,0.06);
-    }
-
-    .term-bar {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 0.75rem 1rem;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-
-    .term-dot { width: 10px; height: 10px; border-radius: 50%; background: #333; }
-    .term-dot:nth-child(1) { background: #FF5F57; }
-    .term-dot:nth-child(2) { background: #FFBD2E; }
-    .term-dot:nth-child(3) { background: #28CA41; }
-
-    .term-label { font-size: 0.7rem; color: #555; margin-left: 0.5rem; }
-
-    .term-body {
-      padding: 1.5rem;
-      font-size: 0.88rem;
-      line-height: 2;
-      color: var(--term-text);
-    }
-
     .kw { color: var(--kw); }
     .fn { color: var(--fn); }
     .cm { color: var(--cm); }
     .ok { color: var(--ok); }
 
-    .term-result {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      margin-top: 0.5rem;
-      font-size: 0.78rem;
-      color: var(--ok);
+    /* demo */
+    .demo {
+      margin-bottom: 2.5rem;
     }
 
-    .term-result::before { content: '▶'; font-size: 0.6rem; }
+    .demo-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2rem;
+    }
+
+    .demo-tab {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 0.55rem 1.1rem 0.45rem;
+      cursor: pointer;
+      transition: color 0.15s;
+      margin-bottom: -1px;
+    }
+
+    .demo-tab:hover { color: var(--text); }
+    .demo-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+    .demo-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .demo-stage {
+      display: flex;
+      justify-content: center;
+    }
+
+    .demo-phone {
+      width: 236px;
+      background: #0c0c0c;
+      border-radius: 30px;
+      border: 3px solid #1e1e1e;
+      padding: 10px;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.04),
+        0 24px 64px rgba(0,0,0,0.28);
+    }
+
+    .demo-panel { display: none; }
+    .demo-panel.active { display: block; }
+
+    .demo-video {
+      width: 100%;
+      border-radius: 20px;
+      display: block;
+    }
 
     /* CTA */
     .cta {
@@ -284,13 +302,44 @@
         grid-template-columns: 1fr;
         gap: 0.25rem;
       }
+
+      .demo-tabs {
+        overflow-x: auto;
+      }
+
+      .demo-tab {
+        font-size: 0.62rem;
+        padding: 0.5rem 0.75rem 0.4rem;
+        letter-spacing: 0.08em;
+        white-space: nowrap;
+      }
+
+      .demo-phone {
+        width: min(236px, 72vw);
+      }
+
+      .config-table thead { display: none; }
+
+      .config-table tr {
+        display: block;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .config-table tr:last-child { border-bottom: none; }
+
+      .config-table td {
+        display: block;
+        padding: 0.15rem 0;
+        border-bottom: none;
+      }
     }
 
     @media (prefers-reduced-motion: no-preference) {
       .hero-eyebrow { animation: fade-up 0.45s 0s ease both; }
       .hero h1      { animation: fade-up 0.45s 0.07s ease both; }
       .hero-sub     { animation: fade-up 0.45s 0.14s ease both; }
-      .term         { animation: fade-up 0.45s 0.21s ease both; }
+      .demo         { animation: fade-up 0.45s 0.21s ease both; }
       .cta          { animation: fade-up 0.45s 0.28s ease both; }
     }
 
@@ -317,22 +366,24 @@
     Runs on your machine, on your network.
   </p>
 
-  <div class="term">
-    <div class="term-bar">
-      <span class="term-dot"></span>
-      <span class="term-dot"></span>
-      <span class="term-dot"></span>
-      <span class="term-label">bricksql &mdash; raw mode</span>
+  <div class="demo">
+    <div class="demo-tabs" role="tablist">
+      <button class="demo-tab active" role="tab" aria-selected="true" aria-controls="demo-builder" data-panel="demo-builder">Builder mode</button>
+      <button class="demo-tab" role="tab" aria-selected="false" aria-controls="demo-ai" data-panel="demo-ai">AI mode</button>
+      <button class="demo-tab" role="tab" aria-selected="false" aria-controls="demo-save" data-panel="demo-save">Build &amp; save</button>
     </div>
-    <div class="term-body">
-      <span class="kw">SELECT</span> u.name, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> orders<br>
-      &nbsp;&nbsp;<span class="kw">FROM</span> users u<br>
-      &nbsp;&nbsp;<span class="kw">JOIN</span> orders o <span class="kw">ON</span> o.user_id = u.id<br>
-      &nbsp;&nbsp;<span class="kw">WHERE</span> u.active = <span class="fn">true</span><br>
-      &nbsp;<span class="kw">GROUP BY</span> u.name<br>
-      &nbsp;<span class="kw">ORDER BY</span> orders <span class="kw">DESC</span><br>
-      &nbsp;&nbsp;&nbsp;<span class="kw">LIMIT</span> <span class="fn">10</span>;<br>
-      <span class="term-result">10 rows &middot; 14 ms</span>
+    <div class="demo-stage">
+      <div class="demo-phone">
+        <div class="demo-panel active" id="demo-builder" role="tabpanel">
+          <video class="demo-video" src="videos/builder_mode.mp4" autoplay loop muted playsinline></video>
+        </div>
+        <div class="demo-panel" id="demo-ai" role="tabpanel">
+          <video class="demo-video" src="videos/ai_mode.mp4" loop muted playsinline></video>
+        </div>
+        <div class="demo-panel" id="demo-save" role="tabpanel">
+          <video class="demo-video" src="videos/build_and_save.mp4" loop muted playsinline></video>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -443,5 +494,26 @@
   <a href="https://github.com/Manuel-Espinosa/bricksql" target="_blank" rel="noopener">github.com/Manuel-Espinosa/bricksql</a>
 </footer>
 
+<script>
+  document.querySelectorAll('.demo-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const targetId = tab.dataset.panel;
+      document.querySelectorAll('.demo-tab').forEach(t => {
+        t.classList.remove('active');
+        t.setAttribute('aria-selected', 'false');
+      });
+      document.querySelectorAll('.demo-panel').forEach(p => {
+        p.classList.remove('active');
+        p.querySelector('video')?.pause();
+      });
+      tab.classList.add('active');
+      tab.setAttribute('aria-selected', 'true');
+      const panel = document.getElementById(targetId);
+      panel.classList.add('active');
+      const video = panel.querySelector('video');
+      if (video) { video.currentTime = 0; video.play(); }
+    });
+  });
+</script>
 </body>
 </html>
