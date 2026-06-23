@@ -164,7 +164,7 @@ export default function ConnectionsPage() {
 
       {/* Modal */}
       {modal && (
-        <div className="fixed inset-0 bg-brick-950/90 flex items-end sm:items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-brick-950/90 flex items-center justify-center p-4 z-50">
           <div className="w-full max-w-sm bg-brick-900 border border-brick-700 p-5">
             <h2 className="text-cream-200 text-xs uppercase tracking-widest mb-4">
               {modal.type === 'create' ? 'new connection' : 'edit connection'}

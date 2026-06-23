@@ -18,7 +18,9 @@ export default function WorkspacePage() {
 
   const [mobileTab, setMobileTab] = useState<Tab>('editor')
   const [editorMode, setEditorMode] = useState<EditorMode>('raw')
-  const [sql, setSql] = useState('')
+  const [rawSql, setRawSql] = useState('')
+  const [builderSql, setBuilderSql] = useState('')
+  const activeSql = editorMode === 'builder' ? builderSql : rawSql
   const [result, setResult] = useState<QueryResult | null>(null)
   const [error, setError] = useState('')
   const [running, setRunning] = useState(false)
@@ -42,13 +44,13 @@ export default function WorkspacePage() {
   })
 
   async function runQuery() {
-    if (!sql.trim() || !connectionId) return
+    if (!activeSql.trim() || !connectionId) return
     setRunning(true)
     setError('')
     setMobileResultsExpanded(false)
     const t0 = Date.now()
     try {
-      const res = await queryApi.execute(connectionId, sql)
+      const res = await queryApi.execute(connectionId, activeSql)
       setResult(res)
       setElapsed(Date.now() - t0)
       setMobileTab('editor')
@@ -77,10 +79,10 @@ export default function WorkspacePage() {
   }
 
   async function saveQuery() {
-    if (!saveName.trim() || !sql.trim() || !connectionId) return
+    if (!saveName.trim() || !activeSql.trim() || !connectionId) return
     setSaving(true)
     try {
-      await savedQueriesApi.create(connectionId, { name: saveName.trim(), sql })
+      await savedQueriesApi.create(connectionId, { name: saveName.trim(), sql: activeSql })
       queryClient.invalidateQueries({ queryKey: ['saved-queries', connectionId] })
       setSaveOpen(false)
       setSaveName('')
@@ -96,7 +98,7 @@ export default function WorkspacePage() {
   }
 
   function loadSql(query: string) {
-    setSql(query)
+    setRawSql(query)
     setEditorMode('raw')
     setMobileTab('editor')
     setTimeout(() => textareaRef.current?.focus(), 0)
@@ -169,7 +171,7 @@ export default function WorkspacePage() {
               />
             )}
             {desktopLeft === 'saved' && (
-              <SavedQueriesPanel connectionId={connectionId!} currentSql={sql} onLoad={loadSql} />
+              <SavedQueriesPanel connectionId={connectionId!} currentSql={activeSql} onLoad={loadSql} />
             )}
           </div>
         </aside>
@@ -222,7 +224,7 @@ export default function WorkspacePage() {
             ) : (
               <button
                 onClick={openSave}
-                disabled={!sql.trim()}
+                disabled={!activeSql.trim()}
                 className="px-4 py-2 text-xs uppercase tracking-widest text-brick-400 hover:text-brick-300 disabled:text-brick-600 border-l border-brick-800 transition-colors"
               >
                 save
@@ -230,7 +232,7 @@ export default function WorkspacePage() {
             )}
             <button
               onClick={runQuery}
-              disabled={running || !sql.trim()}
+              disabled={running || !activeSql.trim()}
               className="px-4 py-2 text-xs uppercase tracking-widest text-copper-500 hover:text-copper-400 disabled:text-brick-600 border-l border-brick-800 transition-colors font-medium"
             >
               {running ? 'running...' : 'run  ⌘↵'}
@@ -239,20 +241,18 @@ export default function WorkspacePage() {
 
           {/* Editor area */}
           <div className="flex-1 relative">
-            {editorMode === 'raw' && (
-              <textarea
-                ref={textareaRef}
-                value={sql}
-                onChange={(e) => setSql(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="SELECT * FROM ..."
-                className="absolute inset-0 w-full h-full bg-transparent text-cream-100 text-xs p-4 resize-none focus:outline-none placeholder:text-brick-600 leading-relaxed"
-                spellCheck={false}
-              />
-            )}
-            {editorMode === 'builder' && (
-              <BuilderMode connectionId={connectionId!} onSwitchToRaw={(s) => { setSql(s); setEditorMode('raw') }} onSqlChange={setSql} />
-            )}
+            <textarea
+              ref={textareaRef}
+              value={rawSql}
+              onChange={(e) => setRawSql(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="SELECT * FROM ..."
+              className={`absolute inset-0 w-full h-full bg-transparent text-cream-100 text-xs p-4 resize-none focus:outline-none placeholder:text-brick-600 leading-relaxed ${editorMode !== 'raw' ? 'hidden' : ''}`}
+              spellCheck={false}
+            />
+            <div className={`absolute inset-0 ${editorMode !== 'builder' ? 'hidden' : ''}`}>
+              <BuilderMode connectionId={connectionId!} onSwitchToRaw={(s) => { setRawSql(s); setEditorMode('raw') }} onSqlChange={setBuilderSql} />
+            </div>
             {editorMode === 'ai' && (
               <AiMode connectionId={connectionId!} onSqlGenerated={loadSql} prompt={aiPrompt} onPromptChange={setAiPrompt} generatedSql={aiGeneratedSql} onGeneratedSqlChange={setAiGeneratedSql} />
             )}
@@ -314,27 +314,23 @@ export default function WorkspacePage() {
               </div>
 
               {/* Editor */}
-              {!mobileResultsExpanded && (
-                <div className="flex-1 relative min-h-0">
-                  {editorMode === 'raw' && (
-                    <textarea
-                      ref={textareaRef}
-                      value={sql}
-                      onChange={(e) => setSql(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder="SELECT * FROM ..."
-                      className="absolute inset-0 w-full h-full bg-transparent text-cream-100 text-xs p-4 resize-none focus:outline-none placeholder:text-brick-600 leading-relaxed"
-                      spellCheck={false}
-                    />
-                  )}
-                  {editorMode === 'builder' && (
-                    <BuilderMode connectionId={connectionId!} onSwitchToRaw={(s) => { setSql(s); setEditorMode('raw') }} onSqlChange={setSql} />
-                  )}
-                  {editorMode === 'ai' && (
-                    <AiMode connectionId={connectionId!} onSqlGenerated={loadSql} prompt={aiPrompt} onPromptChange={setAiPrompt} generatedSql={aiGeneratedSql} onGeneratedSqlChange={setAiGeneratedSql} />
-                  )}
+              <div className={`flex-1 relative min-h-0 ${mobileResultsExpanded ? 'hidden' : ''}`}>
+                <textarea
+                  ref={textareaRef}
+                  value={rawSql}
+                  onChange={(e) => setRawSql(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="SELECT * FROM ..."
+                  className={`absolute inset-0 w-full h-full bg-transparent text-cream-100 text-xs p-4 resize-none focus:outline-none placeholder:text-brick-600 leading-relaxed ${editorMode !== 'raw' ? 'hidden' : ''}`}
+                  spellCheck={false}
+                />
+                <div className={`absolute inset-0 ${editorMode !== 'builder' ? 'hidden' : ''}`}>
+                  <BuilderMode connectionId={connectionId!} onSwitchToRaw={(s) => { setRawSql(s); setEditorMode('raw') }} onSqlChange={setBuilderSql} />
                 </div>
-              )}
+                {editorMode === 'ai' && (
+                  <AiMode connectionId={connectionId!} onSqlGenerated={loadSql} prompt={aiPrompt} onPromptChange={setAiPrompt} generatedSql={aiGeneratedSql} onGeneratedSqlChange={setAiGeneratedSql} />
+                )}
+              </div>
 
               {/* Results toggle + content */}
               {(error || result) && (
@@ -383,14 +379,14 @@ export default function WorkspacePage() {
                 <div className="flex gap-2">
                   <button
                     onClick={openSave}
-                    disabled={!sql.trim()}
+                    disabled={!activeSql.trim()}
                     className="py-2.5 px-4 text-xs uppercase tracking-widest border border-brick-700 text-brick-400 hover:border-brick-500 hover:text-cream-200 disabled:opacity-40 transition-colors"
                   >
                     save
                   </button>
                   <button
                     onClick={runQuery}
-                    disabled={running || !sql.trim()}
+                    disabled={running || !activeSql.trim()}
                     className="flex-1 py-2.5 text-xs uppercase tracking-widest bg-copper-500 hover:bg-copper-400 disabled:bg-brick-800 disabled:text-brick-600 text-brick-950 font-medium transition-colors"
                   >
                     {running ? 'running...' : 'run query'}
@@ -401,7 +397,7 @@ export default function WorkspacePage() {
           )}
 
           {mobileTab === 'saved' && (
-            <SavedQueriesPanel connectionId={connectionId!} currentSql={sql} onLoad={loadSql} />
+            <SavedQueriesPanel connectionId={connectionId!} currentSql={activeSql} onLoad={loadSql} />
           )}
         </div>
 

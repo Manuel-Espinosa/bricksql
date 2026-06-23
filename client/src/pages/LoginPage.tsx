@@ -25,7 +25,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-brick-950 flex items-center justify-center px-4">
+    <div className="min-h-dvh bg-brick-950 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         {/* Wordmark */}
         <div className="mb-10 text-center">

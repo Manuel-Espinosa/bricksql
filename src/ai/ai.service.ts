@@ -80,6 +80,7 @@ export class AiService {
     return raw
       .replace(/^```(?:sql)?\s*/i, '')
       .replace(/\s*```$/, '')
+      .replace(/<\|[^|]+\|>/g, '')
       .trim()
       .replace(/;$/, '');
   }
