@@ -4,6 +4,8 @@ Self-hosted, mobile-first SQL client for querying MySQL and PostgreSQL databases
 
 Built with NestJS + React + Tailwind. Data is persisted as JSON files on the host.
 
+> **Early release.** Core features work today: raw SQL, SELECT queries with JOINs, Builder Mode, and AI-assisted querying via a local Ollama model. Save and reload named queries per connection. Not yet ready for multi-user or production-critical use.
+
 ## Features
 
 - Connect to MySQL and PostgreSQL databases
@@ -43,6 +45,15 @@ docker compose up -d
 
 Open `http://localhost:3000` in your browser.
 
+## Connecting to databases
+
+BrickSQL runs inside Docker but can reach databases in most common setups:
+
+- **Databases on the internet** — work out of the box.
+- **Databases running directly on your host** — use `host.docker.internal` as the hostname (e.g. `host.docker.internal:5432`). This is pre-configured in the included `docker-compose.yml`.
+- **Databases in another Docker container with a port exposed to the host** — same as above, connect via `host.docker.internal:<port>`.
+- **Databases in another Docker container without an exposed port** — BrickSQL won't be able to reach them by default. You'll need to attach BrickSQL to that container's network manually using the `networks` key in your compose file.
+
 ## Environment variables
 
 Copy `.env.example` to `.env` and fill in the required values.
@@ -52,27 +63,22 @@ Copy `.env.example` to `.env` and fill in the required values.
 | `BRICKSQL_USER`     | yes      | Username for login                                   |
 | `BRICKSQL_PASSWORD` | yes      | Password for login                                   |
 | `JWT_SECRET`        | yes      | Secret used to sign auth tokens — keep it random     |
-| `PORT`              | no       | Port to listen on (default: `3000`)                  |
+| `PORT`              | no       | Host port for the container (default: `3000`) — production only; dev mode uses `PORT_BACK` / `PORT_FRONT` / `PORT_DB` |
 | `DATA_DIR`          | no       | Path where JSON data is stored (default: `/data`)    |
 | `OLLAMA_URL`        | no       | Ollama base URL to enable AI mode (e.g. `http://host.docker.internal:11434`) |
-| `OLLAMA_MODEL`      | no       | Ollama model to use for SQL generation (e.g. `qwen2.5-coder:7b`) |
 
 ## Running for development
 
-Requirements: Node 22+
+Requirements: Docker
 
 ```bash
-# Install backend deps
-npm install
-
-# Install frontend deps
-cd client && npm install && cd ..
-
-# Start both in watch mode
+cp .env.example .env
 docker compose -f docker-compose.dev.yml up
 ```
 
-The backend runs on port `3000` and the Vite dev server on port `5173`. Open `http://localhost:5173`.
+By default: backend on `PORT_BACK` (5050), frontend on `PORT_FRONT` (5172), demo MySQL on `PORT_DB` (3001). Open `http://localhost:5172`.
+
+The dev stack includes a seeded MySQL demo database (`demo-db`) with `users` and `countries` tables — useful for testing JOINs right away. Connect to it from the app with host `demo-db`, port `3306`, user `demo`, password `demo`, database `demo`.
 
 ## Building the Docker image locally
 

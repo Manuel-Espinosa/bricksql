@@ -288,6 +288,83 @@
     .badge-yes { background: rgba(193,68,14,0.12); color: var(--accent); }
     .badge-no  { background: rgba(0,0,0,0.05); color: var(--muted); }
 
+    /* quick-start paths */
+    .qs-path { margin-bottom: 0.5rem; }
+
+    .qs-path-label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text);
+      margin-bottom: 0.3rem;
+    }
+
+    .qs-path-desc {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 1.75rem;
+    }
+
+    .qs-step {
+      display: grid;
+      grid-template-columns: 2.25rem 1fr;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      align-items: start;
+    }
+
+    .qs-step-num {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.06em;
+      padding-top: 0.15rem;
+    }
+
+    .qs-step-title {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.6rem;
+    }
+
+    .qs-step-note {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .demo-db-note {
+      background: var(--accent-dim);
+      border-left: 2px solid var(--accent);
+      padding: 0.6rem 0.85rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 0.75rem;
+      border-radius: 0 2px 2px 0;
+      line-height: 1.6;
+    }
+
+    .qs-divider {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin: 2rem 0;
+      color: var(--muted);
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .qs-divider::before,
+    .qs-divider::after {
+      content: '';
+      flex: 1;
+      border-top: 1px solid var(--border);
+    }
+
+    .qs-divider-text { white-space: nowrap; }
+
     /* footer */
     footer {
       border-top: 1px solid var(--border);
@@ -430,8 +507,15 @@
 <section id="quick-start">
   <p class="section-label">Quick start</p>
 
-  <div class="code-block"><span class="cm"># docker-compose.yml</span>
-<span class="kw">services</span>:
+  <div class="qs-path">
+    <p class="qs-path-label">Run with Docker</p>
+    <p class="qs-path-desc">No clone required &mdash; pull the image and go.</p>
+
+    <div class="qs-step">
+      <span class="qs-step-num">01</span>
+      <div class="qs-step-body">
+        <p class="qs-step-title">Create a <code>docker-compose.yml</code></p>
+        <div class="code-block"><span class="kw">services</span>:
   <span class="fn">bricksql</span>:
     image: ghcr.io/manuel-espinosa/bricksql:latest
     ports:
@@ -446,11 +530,62 @@
 
 <span class="kw">volumes</span>:
   <span class="fn">bricksql-data</span>:</div>
+      </div>
+    </div>
 
-  <div class="code-block"><span class="cm">$ </span>docker compose up -d
+    <div class="qs-step">
+      <span class="qs-step-num">02</span>
+      <div class="qs-step-body">
+        <p class="qs-step-title">Start it</p>
+        <div class="code-block"><span class="cm">$ </span>docker compose up -d
 <span class="ok">&#10003; Container bricksql &nbsp;Started</span></div>
+      </div>
+    </div>
 
-  <p style="font-size:0.85rem; color:var(--muted);">Open <code>http://localhost:3000</code></p>
+    <div class="qs-step">
+      <span class="qs-step-num">03</span>
+      <div class="qs-step-body">
+        <p class="qs-step-title">Open the app</p>
+        <p class="qs-step-note">Visit <code>http://localhost:3000</code> and log in with the credentials you set above.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="qs-divider"><span class="qs-divider-text">or develop locally</span></div>
+
+  <div class="qs-path">
+    <p class="qs-path-label">Clone &amp; run dev mode</p>
+    <p class="qs-path-desc">Full dev stack with hot reload &mdash; backend, frontend, and a seeded MySQL demo database included.</p>
+
+    <div class="qs-step">
+      <span class="qs-step-num">01</span>
+      <div class="qs-step-body">
+        <p class="qs-step-title">Clone and configure</p>
+        <div class="code-block"><span class="cm">$ </span>git clone https://github.com/Manuel-Espinosa/bricksql
+<span class="cm">$ </span>cd bricksql
+<span class="cm">$ </span>cp .env.example .env</div>
+      </div>
+    </div>
+
+    <div class="qs-step">
+      <span class="qs-step-num">02</span>
+      <div class="qs-step-body">
+        <p class="qs-step-title">Start the dev stack</p>
+        <div class="code-block"><span class="cm">$ </span>docker compose -f docker-compose.dev.yml up</div>
+        <div class="demo-db-note">
+          Includes a MySQL demo database on port <code>3001</code> &mdash; <code>users</code> and <code>countries</code> tables, seeded and ready to explore with JOINs.
+        </div>
+      </div>
+    </div>
+
+    <div class="qs-step">
+      <span class="qs-step-num">03</span>
+      <div class="qs-step-body">
+        <p class="qs-step-title">Open the app</p>
+        <p class="qs-step-note">Frontend at <code>http://localhost:5172</code> &mdash; backend on <code>:5050</code>.</p>
+      </div>
+    </div>
+  </div>
 </section>
 
 <section>
@@ -482,7 +617,7 @@
       <tr>
         <td><code>PORT</code></td>
         <td><span class="badge badge-no">no</span></td>
-        <td>Port to listen on (default: <code>3000</code>)</td>
+        <td>Host port for the container (default: <code>3000</code>). Dev mode uses <code>PORT_BACK</code>, <code>PORT_FRONT</code>, and <code>PORT_DB</code> instead.</td>
       </tr>
       <tr>
         <td><code>DATA_DIR</code></td>
