@@ -22,7 +22,9 @@ function toCsv(result: QueryResult): string {
 
 function downloadCsv(result: QueryResult) {
   const csv = toCsv(result)
-  const blob = new Blob([csv], { type: 'text/csv' })
+  const bom = new Uint8Array([0xef, 0xbb, 0xbf])
+  const encoded = new TextEncoder().encode(csv)
+  const blob = new Blob([bom, encoded], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
