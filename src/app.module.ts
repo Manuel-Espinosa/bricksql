@@ -17,7 +17,7 @@ import { AiModule } from './ai/ai.module';
     ...(process.env.NODE_ENV === 'production'
       ? [
           ServeStaticModule.forRoot({
-            rootPath: join(__dirname, '..', 'public'),
+            rootPath: join(__dirname, 'public'),
             exclude: ['/api/{*path}'],
           }),
         ]

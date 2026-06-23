@@ -10,6 +10,8 @@ services:
       BRICKSQL_PASSWORD: ${BRICKSQL_PASSWORD:?BRICKSQL_PASSWORD is required}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       DATA_DIR: /data
+      PORT: 3000
+      NODE_ENV: production
       OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
     extra_hosts:
       - "host.docker.internal:host-gateway"

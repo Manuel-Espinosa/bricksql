@@ -18,6 +18,9 @@ lerna-debug.log*
 # OS
 .DS_Store
 
+# ADRs (local docs only)
+docs/adr/
+
 # Tests
 /coverage
 /.nyc_output
