@@ -87,3 +87,9 @@ docker build -t bricksql .
 ```
 
 The build is multi-stage: it compiles the frontend, compiles the backend, then produces a minimal production image that serves both from a single Node process on port `3000`.
+
+## License
+
+BrickSQL is licensed under the [Business Source License 1.1](LICENSE).
+
+**Personal, non-commercial self-hosted use is permitted for free.** On 2030-06-23, the license converts to Apache 2.0.
