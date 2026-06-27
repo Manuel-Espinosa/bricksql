@@ -1,5 +1,7 @@
 # BrickSQL
 
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support-yellow?logo=buy-me-a-coffee&logoColor=white)](https://buymeacoffee.com/manuespinosa)
+
 Self-hosted, mobile-first SQL client for querying MySQL and PostgreSQL databases from any device. Designed to run behind [Tailscale](https://tailscale.com) or any private network — no cloud, no telemetry.
 
 Built with NestJS + React + Tailwind. Data is persisted as JSON files on the host.
