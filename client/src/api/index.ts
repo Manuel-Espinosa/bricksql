@@ -63,6 +63,10 @@ export const explorerApi = {
     api.get<TableColumn[]>(
       `/connections/${connectionId}/explorer/tables/${table}`,
     ),
+  schema: (connectionId: string) =>
+    api.get<{ tables: Record<string, string[]> }>(
+      `/connections/${connectionId}/explorer/schema`,
+    ),
 }
 
 // Query

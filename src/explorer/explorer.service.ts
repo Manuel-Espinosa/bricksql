@@ -42,4 +42,23 @@ export class ExplorerService {
       await adapter.close();
     }
   }
+
+  async getSchema(
+    connectionId: string,
+  ): Promise<{ tables: Record<string, string[]> }> {
+    const conn = await this.connections.findOne(connectionId);
+    const adapter = this.database.createAdapter(conn);
+    try {
+      const tableNames = await adapter.listTables(conn.database);
+      const entries = await Promise.all(
+        tableNames.map(async (name) => {
+          const columns = await adapter.describeTable(name, conn.database);
+          return [name, columns.map((c) => c.name)] as [string, string[]];
+        }),
+      );
+      return { tables: Object.fromEntries(entries) };
+    } finally {
+      await adapter.close();
+    }
+  }
 }

@@ -24,4 +24,9 @@ export class ExplorerController {
   ) {
     return this.explorerService.describeTable(connectionId, table);
   }
+
+  @Get('schema')
+  getSchema(@Param('connectionId') connectionId: string) {
+    return this.explorerService.getSchema(connectionId);
+  }
 }

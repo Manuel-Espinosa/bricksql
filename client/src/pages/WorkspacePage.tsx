@@ -1,14 +1,15 @@
 import { useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { connectionsApi, queryApi, savedQueriesApi, aiApi, type QueryResult } from '../api'
+import { connectionsApi, queryApi, savedQueriesApi, aiApi, explorerApi, type QueryResult } from '../api'
 import TableExplorer from '../components/TableExplorer'
 import ResultsTable from '../components/ResultsTable'
 import BuilderMode from '../components/builder/BuilderMode'
+import ScriptEditor, { type ScriptEditorHandle } from '../components/ScriptEditor'
 import { useAuth } from '../context/AuthContext'
 
 type Tab = 'explorer' | 'editor' | 'saved'
-type EditorMode = 'raw' | 'builder' | 'ai'
+type EditorMode = 'script' | 'builder' | 'ai'
 type Panel = 'explorer' | 'results'
 
 export default function WorkspacePage() {
@@ -17,10 +18,10 @@ export default function WorkspacePage() {
   const { logout } = useAuth()
 
   const [mobileTab, setMobileTab] = useState<Tab>('editor')
-  const [editorMode, setEditorMode] = useState<EditorMode>('raw')
-  const [rawSql, setRawSql] = useState('')
+  const [editorMode, setEditorMode] = useState<EditorMode>('script')
+  const [scriptSql, setScriptSql] = useState('')
   const [builderSql, setBuilderSql] = useState('')
-  const activeSql = editorMode === 'builder' ? builderSql : rawSql
+  const activeSql = editorMode === 'builder' ? builderSql : scriptSql
   const [result, setResult] = useState<QueryResult | null>(null)
   const [error, setError] = useState('')
   const [running, setRunning] = useState(false)
@@ -33,8 +34,15 @@ export default function WorkspacePage() {
   const [saving, setSaving] = useState(false)
   const [aiPrompt, setAiPrompt] = useState('')
   const [aiGeneratedSql, setAiGeneratedSql] = useState('')
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const scriptEditorDesktopRef = useRef<ScriptEditorHandle>(null)
+  const scriptEditorMobileRef = useRef<ScriptEditorHandle>(null)
   const saveInputRef = useRef<HTMLInputElement>(null)
+
+  function activeScriptEditor() {
+    return window.innerWidth >= 768
+      ? scriptEditorDesktopRef.current
+      : scriptEditorMobileRef.current
+  }
   const queryClient = useQueryClient()
 
   const { data: connection } = useQuery({
@@ -43,15 +51,48 @@ export default function WorkspacePage() {
     enabled: !!connectionId,
   })
 
+  const { data: schemaData } = useQuery({
+    queryKey: ['schema', connectionId],
+    queryFn: () => explorerApi.schema(connectionId!),
+    enabled: !!connectionId && !!connection?.database,
+    staleTime: 60_000,
+  })
+  const schema = schemaData?.tables ?? {}
+
   async function runQuery() {
-    if (!activeSql.trim() || !connectionId) return
+    if (!connectionId) return
+    const sql =
+      editorMode === 'script'
+        ? (activeScriptEditor()?.getSqlToRun() || scriptSql.trim())
+        : activeSql.trim()
+    if (!sql) return
+
+    // Split on ';' or blank lines — blank lines let users omit semicolons
+    const stmts = sql.split(/;|\n[ \t]*\n/).map((s) => s.trim()).filter(Boolean)
+
     setRunning(true)
     setError('')
     setMobileResultsExpanded(false)
     const t0 = Date.now()
     try {
-      const res = await queryApi.execute(connectionId, activeSql)
-      setResult(res)
+      if (stmts.length <= 1) {
+        const res = await queryApi.execute(connectionId, stmts[0] ?? sql)
+        setResult(res)
+      } else {
+        let totalAffected = 0
+        let selectResult: QueryResult | null = null
+        for (let n = 0; n < stmts.length; n++) {
+          let res: QueryResult
+          try {
+            res = await queryApi.execute(connectionId, stmts[n])
+          } catch (err) {
+            throw new Error(`[${n + 1}/${stmts.length}] ${(err as Error).message}`)
+          }
+          if (res.rows.length > 0) selectResult = res
+          else totalAffected += res.affectedRows ?? 0
+        }
+        setResult(selectResult ?? { columns: [], rows: [], affectedRows: totalAffected })
+      }
       setElapsed(Date.now() - t0)
       setMobileTab('editor')
       setDesktopRight('results')
@@ -62,13 +103,6 @@ export default function WorkspacePage() {
       setMobileResultsExpanded(true)
     } finally {
       setRunning(false)
-    }
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      e.preventDefault()
-      runQuery()
     }
   }
 
@@ -98,10 +132,10 @@ export default function WorkspacePage() {
   }
 
   function loadSql(query: string) {
-    setRawSql(query)
-    setEditorMode('raw')
+    setScriptSql(query)
+    setEditorMode('script')
     setMobileTab('editor')
-    setTimeout(() => textareaRef.current?.focus(), 0)
+    setTimeout(() => activeScriptEditor()?.focus(), 0)
   }
 
   const hasDatabase = !!connection?.database
@@ -180,7 +214,7 @@ export default function WorkspacePage() {
         <div className="flex-1 flex flex-col min-w-0">
           {/* Mode tabs */}
           <div className="border-b border-brick-800 flex shrink-0">
-            {(['raw', 'builder', 'ai'] as EditorMode[]).map((mode) => (
+            {(['script', 'builder', 'ai'] as EditorMode[]).map((mode) => (
               <button
                 key={mode}
                 onClick={() => setEditorMode(mode)}
@@ -241,17 +275,17 @@ export default function WorkspacePage() {
 
           {/* Editor area */}
           <div className="flex-1 relative">
-            <textarea
-              ref={textareaRef}
-              value={rawSql}
-              onChange={(e) => setRawSql(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="SELECT * FROM ..."
-              className={`absolute inset-0 w-full h-full bg-transparent text-cream-100 text-xs p-4 resize-none focus:outline-none placeholder:text-brick-600 leading-relaxed ${editorMode !== 'raw' ? 'hidden' : ''}`}
-              spellCheck={false}
-            />
+            <div className={`absolute inset-0 ${editorMode !== 'script' ? 'hidden' : ''}`}>
+              <ScriptEditor
+                ref={scriptEditorDesktopRef}
+                value={scriptSql}
+                onChange={setScriptSql}
+                schema={schema}
+                onRun={runQuery}
+              />
+            </div>
             <div className={`absolute inset-0 ${editorMode !== 'builder' ? 'hidden' : ''}`}>
-              <BuilderMode connectionId={connectionId!} onSwitchToRaw={(s) => { setRawSql(s); setEditorMode('raw') }} onSqlChange={setBuilderSql} />
+              <BuilderMode connectionId={connectionId!} onSwitchToRaw={(s) => { setScriptSql(s); setEditorMode('script') }} onSqlChange={setBuilderSql} />
             </div>
             {editorMode === 'ai' && (
               <AiMode connectionId={connectionId!} onSqlGenerated={loadSql} prompt={aiPrompt} onPromptChange={setAiPrompt} generatedSql={aiGeneratedSql} onGeneratedSqlChange={setAiGeneratedSql} />
@@ -298,7 +332,7 @@ export default function WorkspacePage() {
             <div className="h-full flex flex-col">
               {/* Mode tabs */}
               <div className="border-b border-brick-800 flex shrink-0">
-                {(['raw', 'builder', 'ai'] as EditorMode[]).map((mode) => (
+                {(['script', 'builder', 'ai'] as EditorMode[]).map((mode) => (
                   <button
                     key={mode}
                     onClick={() => setEditorMode(mode)}
@@ -315,17 +349,17 @@ export default function WorkspacePage() {
 
               {/* Editor */}
               <div className={`flex-1 relative min-h-0 ${mobileResultsExpanded ? 'hidden' : ''}`}>
-                <textarea
-                  ref={textareaRef}
-                  value={rawSql}
-                  onChange={(e) => setRawSql(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="SELECT * FROM ..."
-                  className={`absolute inset-0 w-full h-full bg-transparent text-cream-100 text-xs p-4 resize-none focus:outline-none placeholder:text-brick-600 leading-relaxed ${editorMode !== 'raw' ? 'hidden' : ''}`}
-                  spellCheck={false}
-                />
+                <div className={`absolute inset-0 ${editorMode !== 'script' ? 'hidden' : ''}`}>
+                  <ScriptEditor
+                    ref={scriptEditorMobileRef}
+                    value={scriptSql}
+                    onChange={setScriptSql}
+                    schema={schema}
+                    onRun={runQuery}
+                  />
+                </div>
                 <div className={`absolute inset-0 ${editorMode !== 'builder' ? 'hidden' : ''}`}>
-                  <BuilderMode connectionId={connectionId!} onSwitchToRaw={(s) => { setRawSql(s); setEditorMode('raw') }} onSqlChange={setBuilderSql} />
+                  <BuilderMode connectionId={connectionId!} onSwitchToRaw={(s) => { setScriptSql(s); setEditorMode('script') }} onSqlChange={setBuilderSql} />
                 </div>
                 {editorMode === 'ai' && (
                   <AiMode connectionId={connectionId!} onSqlGenerated={loadSql} prompt={aiPrompt} onPromptChange={setAiPrompt} generatedSql={aiGeneratedSql} onGeneratedSqlChange={setAiGeneratedSql} />
