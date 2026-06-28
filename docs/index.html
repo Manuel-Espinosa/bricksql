@@ -289,6 +289,30 @@
     .badge-yes { background: rgba(193,68,14,0.12); color: var(--accent); }
     .badge-no  { background: rgba(0,0,0,0.05); color: var(--muted); }
 
+    /* copy button */
+    .code-wrap { position: relative; }
+
+    .copy-btn {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: var(--term-text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      padding: 0.25rem 0.55rem;
+      border-radius: 2px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      line-height: 1;
+    }
+
+    .copy-btn:hover { background: rgba(255,255,255,0.13); }
+    .copy-btn.copied { color: var(--ok); border-color: rgba(74,222,128,0.3); }
+
     /* quick-start paths */
     .qs-path { margin-bottom: 0.5rem; }
 
@@ -314,6 +338,8 @@
       margin-bottom: 1.5rem;
       align-items: start;
     }
+
+    .qs-step > div { min-width: 0; }
 
     .qs-step-num {
       font-size: 0.65rem;
@@ -516,7 +542,9 @@
       <span class="qs-step-num">01</span>
       <div class="qs-step-body">
         <p class="qs-step-title">Create a <code>docker-compose.yml</code></p>
-        <div class="code-block"><span class="kw">services</span>:
+        <div class="code-wrap">
+          <button class="copy-btn" aria-label="Copy to clipboard">copy</button>
+          <div class="code-block"><span class="kw">services</span>:
   <span class="fn">bricksql</span>:
     image: ghcr.io/manuel-espinosa/bricksql:latest
     ports:
@@ -526,11 +554,12 @@
     environment:
       <span class="kw">BRICKSQL_USER</span>: admin
       <span class="kw">BRICKSQL_PASSWORD</span>: changeme
-      <span class="kw">JWT_SECRET</span>: change-this-to-a-random-secret
+      <span class="kw">JWT_SECRET</span>: change-this-secret
     restart: unless-stopped
 
 <span class="kw">volumes</span>:
   <span class="fn">bricksql-data</span>:</div>
+        </div>
       </div>
     </div>
 
@@ -538,8 +567,11 @@
       <span class="qs-step-num">02</span>
       <div class="qs-step-body">
         <p class="qs-step-title">Start it</p>
-        <div class="code-block"><span class="cm">$ </span>docker compose up -d
+        <div class="code-wrap">
+          <button class="copy-btn" aria-label="Copy to clipboard">copy</button>
+          <div class="code-block"><span class="cm">$ </span>docker compose up -d
 <span class="ok">&#10003; Container bricksql &nbsp;Started</span></div>
+        </div>
       </div>
     </div>
 
@@ -562,9 +594,12 @@
       <span class="qs-step-num">01</span>
       <div class="qs-step-body">
         <p class="qs-step-title">Clone and configure</p>
-        <div class="code-block"><span class="cm">$ </span>git clone https://github.com/Manuel-Espinosa/bricksql
+        <div class="code-wrap">
+          <button class="copy-btn" aria-label="Copy to clipboard">copy</button>
+          <div class="code-block"><span class="cm">$ </span>git clone https://github.com/Manuel-Espinosa/bricksql
 <span class="cm">$ </span>cd bricksql
 <span class="cm">$ </span>cp .env.example .env</div>
+        </div>
       </div>
     </div>
 
@@ -572,7 +607,10 @@
       <span class="qs-step-num">02</span>
       <div class="qs-step-body">
         <p class="qs-step-title">Start the dev stack</p>
-        <div class="code-block"><span class="cm">$ </span>docker compose -f docker-compose.dev.yml up</div>
+        <div class="code-wrap">
+          <button class="copy-btn" aria-label="Copy to clipboard">copy</button>
+          <div class="code-block"><span class="cm">$ </span>docker compose -f docker-compose.dev.yml up</div>
+        </div>
         <div class="demo-db-note">
           Includes a MySQL demo database on port <code>3001</code> &mdash; <code>users</code> and <code>countries</code> tables, seeded and ready to explore with JOINs.
         </div>
@@ -641,6 +679,20 @@
 </footer>
 
 <script>
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const code = btn.nextElementSibling;
+      navigator.clipboard.writeText(code.textContent.trim()).then(() => {
+        btn.textContent = 'copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'copy';
+          btn.classList.remove('copied');
+        }, 2000);
+      });
+    });
+  });
+
   document.querySelectorAll('.demo-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       const targetId = tab.dataset.panel;
