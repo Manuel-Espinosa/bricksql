@@ -7,7 +7,12 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      strictTransportSecurity: false,
+      contentSecurityPolicy: false,
+    }),
+  );
   app.setGlobalPrefix('api');
   app.useGlobalPipes(
     new ValidationPipe({
