@@ -47,6 +47,17 @@ docker compose up -d
 
 Open `http://localhost:3000` in your browser.
 
+## Updating
+
+To get the latest version:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+Your data is safe — it lives in the `bricksql_data` volume and is never touched by an update.
+
 ## Connecting to databases
 
 BrickSQL runs inside Docker but can reach databases in most common setups:
