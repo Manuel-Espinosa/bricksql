@@ -1,13 +1,19 @@
 import { useState, useRef, useEffect } from 'react'
 import type { QueryResult } from '../api'
 import VerticalView from './VerticalView'
-import { formatCell, toCsv, toJson, toMarkdown, downloadCsv } from '../lib/resultExport'
+import EditableCell from './EditableCell'
+import { toCsv, toJson, toMarkdown, downloadCsv } from '../lib/resultExport'
+import { isColumnEditable, rowKeyFor } from '../lib/cellEdit'
+import { useCellEditor } from '../lib/useCellEditor'
 
 const MAX_COMPARE_ROWS = 10
 
 interface Props {
   result: QueryResult
   elapsed?: number
+  connectionId: string
+  queryRunId: number
+  onRefresh: () => Promise<QueryResult>
 }
 
 const COPY_OPTIONS = [
@@ -62,24 +68,43 @@ export function CopyMenu({ result }: { result: QueryResult }) {
   )
 }
 
-export default function ResultsTable({ result, elapsed }: Props) {
-  const [selected, setSelected] = useState<Set<number>>(new Set())
+export default function ResultsTable({ result, elapsed, connectionId, queryRunId, onRefresh }: Props) {
+  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showVertical, setShowVertical] = useState(false)
   const [capNotice, setCapNotice] = useState(false)
 
-  // Reset selection whenever a new query result arrives (row indices from a
-  // previous result don't correspond to anything meaningful in a new one).
-  const [prevResult, setPrevResult] = useState(result)
-  if (prevResult !== result) {
-    setPrevResult(result)
+  // Reset selection only on a genuinely new query run — not on the refetch
+  // that follows a cell save, which instead remaps by primary key below.
+  const [prevQueryRunId, setPrevQueryRunId] = useState(queryRunId)
+  if (prevQueryRunId !== queryRunId) {
+    setPrevQueryRunId(queryRunId)
     setSelected(new Set())
     setShowVertical(false)
   }
 
-  function toggleRow(i: number) {
+  function keyFor(row: Record<string, unknown>, i: number): string {
+    return rowKeyFor(result, row) ?? String(i)
+  }
+
+  async function handleSaved() {
+    const newResult = await onRefresh()
+    const validKeys = new Set(newResult.rows.map((r, i) => rowKeyFor(newResult, r) ?? String(i)))
+    setSelected((prev) => {
+      const next = new Set<string>()
+      prev.forEach((k) => {
+        if (validKeys.has(k)) next.add(k)
+      })
+      return next
+    })
+  }
+
+  const { editing, draft, setDraft, saving, startEdit, cancelEdit, commitEdit, errorFor } =
+    useCellEditor(connectionId, result, handleSaved)
+
+  function toggleRow(key: string) {
     const next = new Set(selected)
-    if (next.has(i)) {
-      next.delete(i)
+    if (next.has(key)) {
+      next.delete(key)
       if (next.size === 0) setShowVertical(false)
     } else {
       if (next.size >= MAX_COMPARE_ROWS) {
@@ -87,22 +112,25 @@ export default function ResultsTable({ result, elapsed }: Props) {
         setTimeout(() => setCapNotice(false), 1500)
         return
       }
-      next.add(i)
+      next.add(key)
     }
     setSelected(next)
   }
 
-  function removeFromSelection(i: number) {
+  function removeFromSelection(key: string) {
     const next = new Set(selected)
-    next.delete(i)
+    next.delete(key)
     setSelected(next)
     if (next.size === 0) setShowVertical(false)
   }
 
-  const selectedIndices = [...selected].sort((a, b) => a - b)
+  const rowsByKey = new Map(result.rows.map((r, i) => [keyFor(r, i), r]))
+  const selectedKeys = result.rows
+    .map((r, i) => keyFor(r, i))
+    .filter((k) => selected.has(k))
   const derivedResult: QueryResult = {
     columns: result.columns,
-    rows: selectedIndices.map((i) => result.rows[i]),
+    rows: selectedKeys.map((k) => rowsByKey.get(k)!),
   }
 
   if (result.affectedRows !== undefined) {
@@ -133,22 +161,30 @@ export default function ResultsTable({ result, elapsed }: Props) {
   return (
     <div className="flex flex-col h-full">
       {/* Meta bar */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-brick-800 shrink-0">
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-brick-800 shrink-0 gap-3">
         {showVertical ? (
-          <span className="text-brick-500 text-xs">
-            vertical view · {selectedIndices.length} row{selectedIndices.length !== 1 ? 's' : ''}
+          <span className="text-brick-500 text-xs shrink-0">
+            vertical view · {selectedKeys.length} row{selectedKeys.length !== 1 ? 's' : ''}
           </span>
         ) : (
-          <span className="text-brick-500 text-xs">
+          <span className="text-brick-500 text-xs shrink-0">
             {result.rows.length} row{result.rows.length !== 1 ? 's' : ''}
             {elapsed !== undefined && ` · ${elapsed}ms`}
           </span>
         )}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          {result.editable && !result.editable.editable && (
+            <span
+              className="text-brick-500 text-[10px] uppercase tracking-widest border border-brick-800 px-2 py-0.5 truncate"
+              title={result.editable.reason}
+            >
+              read-only · {result.editable.reason}
+            </span>
+          )}
           {showVertical ? (
             <button
               onClick={() => setShowVertical(false)}
-              className="text-xs text-brick-400 hover:text-copper-500 uppercase tracking-widest transition-colors"
+              className="text-xs text-brick-400 hover:text-copper-500 uppercase tracking-widest transition-colors shrink-0"
             >
               ← table
             </button>
@@ -156,32 +192,40 @@ export default function ResultsTable({ result, elapsed }: Props) {
             selected.size > 0 && (
               <button
                 onClick={() => setShowVertical(true)}
-                className="text-xs text-brick-400 hover:text-copper-500 uppercase tracking-widest transition-colors"
+                className="text-xs text-brick-400 hover:text-copper-500 uppercase tracking-widest transition-colors shrink-0"
               >
                 vertical view ({selected.size})
               </button>
             )
           )}
           {capNotice && (
-            <span className="text-brick-600 text-[10px] uppercase tracking-widest">
+            <span className="text-brick-600 text-[10px] uppercase tracking-widest shrink-0">
               max {MAX_COMPARE_ROWS} rows
             </span>
           )}
           <CopyMenu result={showVertical ? derivedResult : result} />
           <button
             onClick={() => downloadCsv(showVertical ? derivedResult : result)}
-            className="text-xs text-brick-400 hover:text-copper-500 uppercase tracking-widest transition-colors"
+            className="text-xs text-brick-400 hover:text-copper-500 uppercase tracking-widest transition-colors shrink-0"
           >
             ↓ csv
           </button>
         </div>
       </div>
 
-      {showVertical && selectedIndices.length > 0 ? (
+      {showVertical && selectedKeys.length > 0 ? (
         <VerticalView
           result={result}
-          selectedIndices={selectedIndices}
+          selectedKeys={selectedKeys}
           onRemove={removeFromSelection}
+          editing={editing}
+          draft={draft}
+          setDraft={setDraft}
+          saving={saving}
+          startEdit={startEdit}
+          cancelEdit={cancelEdit}
+          commitEdit={commitEdit}
+          errorFor={errorFor}
         />
       ) : (
         /* Table */
@@ -189,6 +233,7 @@ export default function ResultsTable({ result, elapsed }: Props) {
           <table className="w-full text-xs border-collapse min-w-max">
             <thead className="sticky top-0 bg-brick-900 z-10">
               <tr>
+                <th className="border-b border-brick-800 w-11" />
                 {result.columns.map((col, colIdx) => (
                   <th
                     key={colIdx}
@@ -200,31 +245,46 @@ export default function ResultsTable({ result, elapsed }: Props) {
               </tr>
             </thead>
             <tbody>
-              {result.rows.map((row, i) => (
-                <tr
-                  key={i}
-                  onClick={() => toggleRow(i)}
-                  className={`border-b border-brick-800/50 hover:bg-brick-800/30 transition-colors cursor-pointer ${
-                    selected.has(i) ? 'bg-copper-500/10' : ''
-                  }`}
-                >
-                  {result.columns.map((col, colIdx) => {
-                    const val = row[col]
-                    const isNull = val === null || val === undefined
-                    return (
-                      <td
-                        key={colIdx}
-                        className={`px-3 py-1.5 whitespace-nowrap max-w-xs truncate ${
-                          isNull ? 'text-brick-600 italic' : 'text-cream-100'
-                        }`}
-                        title={isNull ? 'NULL' : formatCell(val)}
-                      >
-                        {isNull ? 'NULL' : formatCell(val)}
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
+              {result.rows.map((row, i) => {
+                const key = keyFor(row, i)
+                return (
+                  <tr
+                    key={key}
+                    className={`border-b border-brick-800/50 ${selected.has(key) ? 'bg-copper-500/10' : ''}`}
+                  >
+                    <td className="p-0">
+                      <label className="flex items-center justify-center h-full min-h-11 md:min-h-0 px-3 py-3 md:py-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(key)}
+                          onChange={() => toggleRow(key)}
+                          className="w-4 h-4 accent-copper-500"
+                        />
+                      </label>
+                    </td>
+                    {result.columns.map((col, colIdx) => {
+                      const val = row[col]
+                      const editable = isColumnEditable(result, col)
+                      return (
+                        <EditableCell
+                          key={colIdx}
+                          value={val}
+                          editable={editable}
+                          isEditing={editing?.rowKey === key && editing.column === col}
+                          draft={draft}
+                          error={errorFor(key, col)}
+                          saving={saving}
+                          onStartEdit={() => startEdit(key, col, val)}
+                          onChangeDraft={setDraft}
+                          onCommit={commitEdit}
+                          onCancel={cancelEdit}
+                          className="px-3 py-3 md:py-1.5 whitespace-nowrap max-w-xs truncate"
+                        />
+                      )
+                    })}
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>

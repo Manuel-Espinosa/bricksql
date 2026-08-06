@@ -7,6 +7,7 @@ import { ConnectionsModule } from './connections/connections.module';
 import { DatabaseModule } from './database/database.module';
 import { ExplorerModule } from './explorer/explorer.module';
 import { QueryModule } from './query/query.module';
+import { EditableResultModule } from './editable-result/editable-result.module';
 import { SavedQueriesModule } from './saved-queries/saved-queries.module';
 import { StorageModule } from './storage/storage.module';
 import { AiModule } from './ai/ai.module';
@@ -28,6 +29,7 @@ import { AiModule } from './ai/ai.module';
     DatabaseModule,
     ExplorerModule,
     QueryModule,
+    EditableResultModule,
     SavedQueriesModule,
     AiModule,
   ],

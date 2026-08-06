@@ -1,6 +1,7 @@
 import * as mysql from 'mysql2/promise';
 import {
   DatabaseAdapter,
+  PrimaryKeyEntry,
   QueryResult,
   TableColumn,
 } from './database-adapter.interface';
@@ -52,7 +53,10 @@ export class MysqlAdapter implements DatabaseAdapter {
     return rows.map((r) => Object.values(r)[0] as string);
   }
 
-  async describeTable(table: string, database?: string): Promise<TableColumn[]> {
+  async describeTable(
+    table: string,
+    database?: string,
+  ): Promise<TableColumn[]> {
     const conn = await this.getConnection();
     const db = database ?? this.config.database;
     if (db) {
@@ -65,32 +69,70 @@ export class MysqlAdapter implements DatabaseAdapter {
       name: r.Field as string,
       type: r.Type as string,
       nullable: r.Null === 'YES',
+      primaryKey: r.Key === 'PRI',
     }));
   }
 
-  async executeQuery(sql: string): Promise<QueryResult> {
+  private async runSelect(
+    sql: string,
+  ): Promise<{ result: QueryResult; fields: mysql.FieldPacket[] }> {
     const conn = await this.getConnection();
     const [result, fields] = await conn.query({ sql, rowsAsArray: true });
 
-    if (Array.isArray(result)) {
-      const nameCounts = new Map<string, number>();
-      (fields ?? []).forEach((f) => nameCounts.set(f.name, (nameCounts.get(f.name) ?? 0) + 1));
-
-      const columns = (fields ?? []).map((f) =>
-        (nameCounts.get(f.name) ?? 0) > 1 ? `${f.table}.${f.name}` : f.name,
-      );
-
-      const valueRows = result as unknown as unknown[][];
-      const rows = valueRows.map((r) => {
-        const row: Record<string, unknown> = {};
-        columns.forEach((col, i) => (row[col] = r[i]));
-        return row;
-      });
-      return { columns, rows };
+    if (!Array.isArray(result)) {
+      const okResult = result as mysql.OkPacket;
+      return {
+        result: { columns: [], rows: [], affectedRows: okResult.affectedRows },
+        fields: [],
+      };
     }
 
-    const okResult = result as mysql.OkPacket;
-    return { columns: [], rows: [], affectedRows: okResult.affectedRows };
+    const nameCounts = new Map<string, number>();
+    (fields ?? []).forEach((f) =>
+      nameCounts.set(f.name, (nameCounts.get(f.name) ?? 0) + 1),
+    );
+
+    const columns = (fields ?? []).map((f) =>
+      (nameCounts.get(f.name) ?? 0) > 1 ? `${f.table}.${f.name}` : f.name,
+    );
+
+    const valueRows = result as unknown as unknown[][];
+    const rows = valueRows.map((r) => {
+      const row: Record<string, unknown> = {};
+      columns.forEach((col, i) => (row[col] = r[i]));
+      return row;
+    });
+    return { result: { columns, rows }, fields: fields ?? [] };
+  }
+
+  async executeQuery(sql: string): Promise<QueryResult> {
+    const { result } = await this.runSelect(sql);
+    return result;
+  }
+
+  async executeSelectWithOrigins(
+    sql: string,
+    baseTable: string,
+  ): Promise<{ result: QueryResult; origins: (string | null)[] }> {
+    const { result, fields } = await this.runSelect(sql);
+    const origins = fields.map((f) =>
+      f.orgTable === baseTable ? baseTable : null,
+    );
+    return { result, origins };
+  }
+
+  async updateRow(
+    table: string,
+    primaryKey: PrimaryKeyEntry[],
+    column: string,
+    value: unknown,
+  ): Promise<number> {
+    const conn = await this.getConnection();
+    const where = primaryKey.map((p) => `\`${p.column}\` = ?`).join(' AND ');
+    const sql = `UPDATE \`${table}\` SET \`${column}\` = ? WHERE ${where}`;
+    const params = [value, ...primaryKey.map((p) => p.value)];
+    const [result] = await conn.query<mysql.ResultSetHeader>(sql, params);
+    return result.affectedRows;
   }
 
   async close(): Promise<void> {
