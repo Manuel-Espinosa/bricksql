@@ -7,6 +7,9 @@ import {
 } from './database-adapter.interface';
 import { ConnectionRecord } from '../../storage/storage.service';
 
+// MySQL protocol column type code for JSON columns (mysql2's own Types.JSON constant).
+const MYSQL_JSON_TYPE = 0xf5;
+
 export class MysqlAdapter implements DatabaseAdapter {
   private connection: mysql.Connection | null = null;
 
@@ -95,6 +98,9 @@ export class MysqlAdapter implements DatabaseAdapter {
     const columns = (fields ?? []).map((f) =>
       (nameCounts.get(f.name) ?? 0) > 1 ? `${f.table}.${f.name}` : f.name,
     );
+    const jsonColumns = (fields ?? [])
+      .map((f, i) => (f.type === MYSQL_JSON_TYPE ? columns[i] : null))
+      .filter((c): c is string => c !== null);
 
     const valueRows = result as unknown as unknown[][];
     const rows = valueRows.map((r) => {
@@ -102,7 +108,7 @@ export class MysqlAdapter implements DatabaseAdapter {
       columns.forEach((col, i) => (row[col] = r[i]));
       return row;
     });
-    return { result: { columns, rows }, fields: fields ?? [] };
+    return { result: { columns, rows, jsonColumns }, fields: fields ?? [] };
   }
 
   async executeQuery(sql: string): Promise<QueryResult> {

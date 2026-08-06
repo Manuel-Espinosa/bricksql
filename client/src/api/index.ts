@@ -32,6 +32,8 @@ export interface QueryResult {
   rows: Record<string, unknown>[]
   affectedRows?: number
   editable?: EditableMeta
+  /** Output column names whose Base Table declares a native JSON type (json/jsonb/JSON) — see CONTEXT.md's JSON Column. */
+  jsonColumns?: string[]
 }
 
 export interface TableColumn {

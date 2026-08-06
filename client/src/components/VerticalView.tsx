@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import type { QueryResult } from '../api'
 import { formatCell } from '../lib/resultExport'
-import { isColumnEditable, rowKeyFor } from '../lib/cellEdit'
+import { isColumnEditable, isJsonColumn, rowKeyFor } from '../lib/cellEdit'
 import EditableCell from './EditableCell'
 
 interface EditingCell {
@@ -21,6 +21,7 @@ interface Props {
   cancelEdit: () => void
   commitEdit: () => void
   errorFor: (rowKey: string, column: string) => string | undefined
+  openJsonModal: (rowKey: string, column: string, editable: boolean, value: unknown) => void
 }
 
 const MIN_FIELD_WIDTH = 90
@@ -56,6 +57,7 @@ export default function VerticalView({
   cancelEdit,
   commitEdit,
   errorFor,
+  openJsonModal,
 }: Props) {
   const [widths, setWidths] = useState<Record<string, number>>({})
   const [dragging, setDragging] = useState(false)
@@ -158,16 +160,19 @@ export default function VerticalView({
                 const row = rowsByKey.get(key)
                 const val = row ? row[col] : undefined
                 const editable = isColumnEditable(result, col)
+                const isJson = isJsonColumn(result, col)
                 return (
                   <EditableCell
                     key={key}
                     value={val}
                     editable={editable}
+                    isJson={isJson}
                     isEditing={editing?.rowKey === key && editing.column === col}
                     draft={draft}
                     error={errorFor(key, col)}
                     saving={saving}
                     onStartEdit={() => startEdit(key, col, val)}
+                    onOpenJson={() => openJsonModal(key, col, editable, val)}
                     onChangeDraft={setDraft}
                     onCommit={commitEdit}
                     onCancel={cancelEdit}

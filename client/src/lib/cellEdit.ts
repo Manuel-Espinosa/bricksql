@@ -25,6 +25,10 @@ export function isColumnEditable(result: QueryResult, column: string): boolean {
   return !!meta?.editable && !!meta.editableColumns && column in meta.editableColumns
 }
 
+export function isJsonColumn(result: QueryResult, column: string): boolean {
+  return !!result.jsonColumns?.includes(column)
+}
+
 /** The physical column name to send on save — may differ from the displayed/aliased column name. */
 export function physicalColumnFor(result: QueryResult, column: string): string | null {
   const meta = result.editable

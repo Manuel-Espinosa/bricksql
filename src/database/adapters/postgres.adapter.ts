@@ -7,6 +7,10 @@ import {
 } from './database-adapter.interface';
 import { ConnectionRecord } from '../../storage/storage.service';
 
+// Postgres pg_type OIDs for JSON columns — stable, built-in type IDs.
+const PG_JSON_OID = 114;
+const PG_JSONB_OID = 3802;
+
 export class PostgresAdapter implements DatabaseAdapter {
   private client: Client | null = null;
 
@@ -95,7 +99,7 @@ export class PostgresAdapter implements DatabaseAdapter {
 
   private async runSelect(sql: string): Promise<{
     result: QueryResult;
-    fields: { name: string; tableID: number }[];
+    fields: { name: string; tableID: number; dataTypeID: number }[];
   }> {
     const client = await this.getClient();
     const result = await client.query({ text: sql, rowMode: 'array' });
@@ -125,7 +129,14 @@ export class PostgresAdapter implements DatabaseAdapter {
       columns.forEach((col, i) => (row[col] = r[i]));
       return row;
     });
-    return { result: { columns, rows }, fields: result.fields };
+    const jsonColumns = result.fields
+      .map((f, i) =>
+        f.dataTypeID === PG_JSON_OID || f.dataTypeID === PG_JSONB_OID
+          ? columns[i]
+          : null,
+      )
+      .filter((c): c is string => c !== null);
+    return { result: { columns, rows, jsonColumns }, fields: result.fields };
   }
 
   async executeQuery(sql: string): Promise<QueryResult> {

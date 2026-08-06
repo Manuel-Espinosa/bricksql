@@ -3,11 +3,14 @@ import { formatCell } from '../lib/resultExport'
 interface EditableCellProps {
   value: unknown
   editable: boolean
+  /** JSON Column (see CONTEXT.md) — click opens JsonCellModal instead of the inline input, editable or not. */
+  isJson: boolean
   isEditing: boolean
   draft: string
   error?: string
   saving: boolean
   onStartEdit: () => void
+  onOpenJson: () => void
   onChangeDraft: (v: string) => void
   onCommit: () => void
   onCancel: () => void
@@ -19,11 +22,13 @@ interface EditableCellProps {
 export default function EditableCell({
   value,
   editable,
+  isJson,
   isEditing,
   draft,
   error,
   saving,
   onStartEdit,
+  onOpenJson,
   onChangeDraft,
   onCommit,
   onCancel,
@@ -32,6 +37,19 @@ export default function EditableCell({
 }: EditableCellProps) {
   const isNull = value === null || value === undefined
   const formatted = isNull ? 'NULL' : formatCell(value)
+
+  if (isJson) {
+    return (
+      <td
+        onClick={onOpenJson}
+        className={`${className ?? ''} ${isNull ? 'text-brick-600 italic' : 'text-cream-100'} cursor-pointer`.trim()}
+        title={isNull ? 'NULL' : formatted}
+      >
+        {formatted}
+        {afterContent}
+      </td>
+    )
+  }
 
   if (isEditing) {
     return (

@@ -2,6 +2,8 @@ export interface QueryResult {
   columns: string[];
   rows: Record<string, unknown>[];
   affectedRows?: number;
+  /** Output column names whose Base Table declares a native JSON type (json/jsonb/JSON) — see CONTEXT.md's JSON Column. */
+  jsonColumns?: string[];
 }
 
 export interface TableColumn {

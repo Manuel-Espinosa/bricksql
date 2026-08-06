@@ -7,6 +7,13 @@ interface EditingCell {
   column: string
 }
 
+interface JsonModalCell {
+  rowKey: string
+  column: string
+  editable: boolean
+  value: unknown
+}
+
 function errorKey(rowKey: string, column: string) {
   return `${rowKey}:${column}`
 }
@@ -91,5 +98,71 @@ export function useCellEditor(
     return errors.get(errorKey(rowKey, column))
   }
 
-  return { editing, draft, setDraft, saving, startEdit, cancelEdit, commitEdit, errorFor }
+  const [jsonModal, setJsonModal] = useState<JsonModalCell | null>(null)
+  const [jsonSaving, setJsonSaving] = useState(false)
+  const [jsonError, setJsonError] = useState<string | null>(null)
+
+  function openJsonModal(rowKey: string, column: string, editable: boolean, value: unknown) {
+    setJsonModal({ rowKey, column, editable, value })
+    setJsonError(null)
+  }
+
+  function closeJsonModal() {
+    setJsonModal(null)
+    setJsonError(null)
+  }
+
+  async function saveJsonModal(text: string) {
+    if (!jsonModal) return
+    const { rowKey, column } = jsonModal
+    const trimmed = text.trim()
+    if (trimmed !== '') {
+      try {
+        JSON.parse(trimmed)
+      } catch {
+        setJsonError('Invalid JSON')
+        return
+      }
+    }
+
+    const row = result.rows.find((r) => rowKeyFor(result, r) === rowKey)
+    const physicalColumn = physicalColumnFor(result, column)
+    if (!row || !physicalColumn || !result.editable?.table) {
+      closeJsonModal()
+      return
+    }
+
+    setJsonSaving(true)
+    try {
+      await cellApi.update(connectionId, {
+        table: result.editable.table,
+        primaryKey: pkForRow(result, row),
+        column: physicalColumn,
+        value: trimmed === '' ? null : trimmed,
+      })
+      closeJsonModal()
+      await onSaved()
+    } catch (err) {
+      setJsonError((err as Error).message)
+    } finally {
+      setJsonSaving(false)
+    }
+  }
+
+  return {
+    editing,
+    draft,
+    setDraft,
+    saving,
+    startEdit,
+    cancelEdit,
+    commitEdit,
+    errorFor,
+    jsonModal,
+    jsonSaving,
+    jsonError,
+    openJsonModal,
+    closeJsonModal,
+    saveJsonModal,
+  }
 }

@@ -2,8 +2,9 @@ import { useState, useRef, useEffect } from 'react'
 import type { QueryResult } from '../api'
 import VerticalView from './VerticalView'
 import EditableCell from './EditableCell'
+import JsonCellModal from './JsonCellModal'
 import { toCsv, toJson, toMarkdown, downloadCsv } from '../lib/resultExport'
-import { isColumnEditable, rowKeyFor } from '../lib/cellEdit'
+import { isColumnEditable, isJsonColumn, rowKeyFor } from '../lib/cellEdit'
 import { useCellEditor } from '../lib/useCellEditor'
 
 const MAX_COMPARE_ROWS = 10
@@ -98,8 +99,22 @@ export default function ResultsTable({ result, elapsed, connectionId, queryRunId
     })
   }
 
-  const { editing, draft, setDraft, saving, startEdit, cancelEdit, commitEdit, errorFor } =
-    useCellEditor(connectionId, result, handleSaved)
+  const {
+    editing,
+    draft,
+    setDraft,
+    saving,
+    startEdit,
+    cancelEdit,
+    commitEdit,
+    errorFor,
+    jsonModal,
+    jsonSaving,
+    jsonError,
+    openJsonModal,
+    closeJsonModal,
+    saveJsonModal,
+  } = useCellEditor(connectionId, result, handleSaved)
 
   function toggleRow(key: string) {
     const next = new Set(selected)
@@ -226,6 +241,7 @@ export default function ResultsTable({ result, elapsed, connectionId, queryRunId
           cancelEdit={cancelEdit}
           commitEdit={commitEdit}
           errorFor={errorFor}
+          openJsonModal={openJsonModal}
         />
       ) : (
         /* Table */
@@ -265,16 +281,19 @@ export default function ResultsTable({ result, elapsed, connectionId, queryRunId
                     {result.columns.map((col, colIdx) => {
                       const val = row[col]
                       const editable = isColumnEditable(result, col)
+                      const isJson = isJsonColumn(result, col)
                       return (
                         <EditableCell
                           key={colIdx}
                           value={val}
                           editable={editable}
+                          isJson={isJson}
                           isEditing={editing?.rowKey === key && editing.column === col}
                           draft={draft}
                           error={errorFor(key, col)}
                           saving={saving}
                           onStartEdit={() => startEdit(key, col, val)}
+                          onOpenJson={() => openJsonModal(key, col, editable, val)}
                           onChangeDraft={setDraft}
                           onCommit={commitEdit}
                           onCancel={cancelEdit}
@@ -288,6 +307,19 @@ export default function ResultsTable({ result, elapsed, connectionId, queryRunId
             </tbody>
           </table>
         </div>
+      )}
+
+      {jsonModal && (
+        <JsonCellModal
+          key={`${jsonModal.rowKey}:${jsonModal.column}`}
+          column={jsonModal.column}
+          value={jsonModal.value}
+          editable={jsonModal.editable}
+          saving={jsonSaving}
+          error={jsonError}
+          onSave={saveJsonModal}
+          onClose={closeJsonModal}
+        />
       )}
     </div>
   )
