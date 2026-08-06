@@ -26,6 +26,10 @@ export default function WorkspacePage() {
   const [error, setError] = useState('')
   const [running, setRunning] = useState(false)
   const [elapsed, setElapsed] = useState<number | undefined>()
+  const [lastExecutedSql, setLastExecutedSql] = useState('')
+  // Bumped only by runQuery() — lets ResultsTable tell "brand new query" (reset
+  // row selection) apart from "refresh after my own cell edit" (remap by PK).
+  const [queryRunId, setQueryRunId] = useState(0)
   const [, setDesktopRight] = useState<Panel>('results')
   const [desktopLeft, setDesktopLeft] = useState<'tables' | 'saved'>('tables')
   const [mobileResultsExpanded, setMobileResultsExpanded] = useState(false)
@@ -76,11 +80,14 @@ export default function WorkspacePage() {
     const t0 = Date.now()
     try {
       if (stmts.length <= 1) {
-        const res = await queryApi.execute(connectionId, stmts[0] ?? sql)
+        const stmtSql = stmts[0] ?? sql
+        const res = await queryApi.execute(connectionId, stmtSql)
         setResult(res)
+        setLastExecutedSql(stmtSql)
       } else {
         let totalAffected = 0
         let selectResult: QueryResult | null = null
+        let selectSql = ''
         for (let n = 0; n < stmts.length; n++) {
           let res: QueryResult
           try {
@@ -88,12 +95,18 @@ export default function WorkspacePage() {
           } catch (err) {
             throw new Error(`[${n + 1}/${stmts.length}] ${(err as Error).message}`)
           }
-          if (res.rows.length > 0) selectResult = res
-          else totalAffected += res.affectedRows ?? 0
+          if (res.rows.length > 0) {
+            selectResult = res
+            selectSql = stmts[n]
+          } else {
+            totalAffected += res.affectedRows ?? 0
+          }
         }
         setResult(selectResult ?? { columns: [], rows: [], affectedRows: totalAffected })
+        setLastExecutedSql(selectSql)
       }
       setElapsed(Date.now() - t0)
+      setQueryRunId((v) => v + 1)
       setMobileTab('editor')
       setDesktopRight('results')
       setMobileResultsExpanded(true)
@@ -104,6 +117,13 @@ export default function WorkspacePage() {
     } finally {
       setRunning(false)
     }
+  }
+
+  async function refreshResult(): Promise<QueryResult> {
+    if (!connectionId || !lastExecutedSql) throw new Error('No active query to refresh')
+    const res = await queryApi.execute(connectionId, lastExecutedSql)
+    setResult(res)
+    return res
   }
 
   function openSave() {
@@ -304,7 +324,15 @@ export default function WorkspacePage() {
                 {error}
               </div>
             )}
-            {result && <ResultsTable result={result} elapsed={elapsed} />}
+            {result && (
+              <ResultsTable
+                result={result}
+                elapsed={elapsed}
+                connectionId={connectionId!}
+                queryRunId={queryRunId}
+                onRefresh={refreshResult}
+              />
+            )}
             {!result && !error && (
               <p className="text-brick-600 text-xs p-4">
                 run a query to see results
@@ -378,7 +406,15 @@ export default function WorkspacePage() {
                   </button>
                   <div className={`overflow-auto shrink-0 ${mobileResultsExpanded ? 'flex-1' : 'max-h-48'}`}>
                     {error && <div className="p-3 text-danger-400 text-xs">{error}</div>}
-                    {result && <ResultsTable result={result} elapsed={elapsed} />}
+                    {result && (
+                      <ResultsTable
+                        result={result}
+                        elapsed={elapsed}
+                        connectionId={connectionId!}
+                        queryRunId={queryRunId}
+                        onRefresh={refreshResult}
+                      />
+                    )}
                   </div>
                 </>
               )}

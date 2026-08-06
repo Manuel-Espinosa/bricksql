@@ -33,6 +33,7 @@
     "class-validator": "^0.15.1",
     "helmet": "^8.2.0",
     "mysql2": "^3.22.5",
+    "node-sql-parser": "^5.4.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
@@ -81,6 +82,9 @@
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "moduleNameMapper": {
+      "^uuid$": "<rootDir>/__mocks__/uuid.ts"
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"

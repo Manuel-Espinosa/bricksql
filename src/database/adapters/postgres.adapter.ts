@@ -1,6 +1,7 @@
 import { Client } from 'pg';
 import {
   DatabaseAdapter,
+  PrimaryKeyEntry,
   QueryResult,
   TableColumn,
 } from './database-adapter.interface';
@@ -57,7 +58,10 @@ export class PostgresAdapter implements DatabaseAdapter {
     return result.rows.map((r) => r.table_name);
   }
 
-  async describeTable(table: string, _database?: string): Promise<TableColumn[]> {
+  async describeTable(
+    table: string,
+    _database?: string,
+  ): Promise<TableColumn[]> {
     const client = await this.getClient();
     const result = await client.query<{
       column_name: string;
@@ -70,38 +74,100 @@ export class PostgresAdapter implements DatabaseAdapter {
        ORDER BY ordinal_position`,
       [table],
     );
+
+    const pkResult = await client.query<{ column_name: string }>(
+      `SELECT kcu.column_name
+       FROM information_schema.table_constraints tc
+       JOIN information_schema.key_column_usage kcu
+         ON tc.constraint_name = kcu.constraint_name AND tc.constraint_schema = kcu.constraint_schema
+       WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = 'public' AND tc.table_name = $1`,
+      [table],
+    );
+    const pkColumns = new Set(pkResult.rows.map((r) => r.column_name));
+
     return result.rows.map((r) => ({
       name: r.column_name,
       type: r.data_type,
       nullable: r.is_nullable === 'YES',
+      primaryKey: pkColumns.has(r.column_name),
     }));
   }
 
-  async executeQuery(sql: string): Promise<QueryResult> {
+  private async runSelect(sql: string): Promise<{
+    result: QueryResult;
+    fields: { name: string; tableID: number }[];
+  }> {
     const client = await this.getClient();
     const result = await client.query({ text: sql, rowMode: 'array' });
 
-    if (result.fields && result.fields.length > 0) {
-      const nameCounts = new Map<string, number>();
-      result.fields.forEach((f) => nameCounts.set(f.name, (nameCounts.get(f.name) ?? 0) + 1));
-
-      const nameOccurrence = new Map<string, number>();
-      const columns = result.fields.map((f) => {
-        if ((nameCounts.get(f.name) ?? 0) <= 1) return f.name;
-        const n = (nameOccurrence.get(f.name) ?? 0) + 1;
-        nameOccurrence.set(f.name, n);
-        return `${f.name}_${n}`;
-      });
-
-      const rows = (result.rows as unknown[][]).map((r) => {
-        const row: Record<string, unknown> = {};
-        columns.forEach((col, i) => (row[col] = r[i]));
-        return row;
-      });
-      return { columns, rows };
+    if (!result.fields || result.fields.length === 0) {
+      return {
+        result: { columns: [], rows: [], affectedRows: result.rowCount ?? 0 },
+        fields: [],
+      };
     }
 
-    return { columns: [], rows: [], affectedRows: result.rowCount ?? 0 };
+    const nameCounts = new Map<string, number>();
+    result.fields.forEach((f) =>
+      nameCounts.set(f.name, (nameCounts.get(f.name) ?? 0) + 1),
+    );
+
+    const nameOccurrence = new Map<string, number>();
+    const columns = result.fields.map((f) => {
+      if ((nameCounts.get(f.name) ?? 0) <= 1) return f.name;
+      const n = (nameOccurrence.get(f.name) ?? 0) + 1;
+      nameOccurrence.set(f.name, n);
+      return `${f.name}_${n}`;
+    });
+
+    const rows = (result.rows as unknown[][]).map((r) => {
+      const row: Record<string, unknown> = {};
+      columns.forEach((col, i) => (row[col] = r[i]));
+      return row;
+    });
+    return { result: { columns, rows }, fields: result.fields };
+  }
+
+  async executeQuery(sql: string): Promise<QueryResult> {
+    const { result } = await this.runSelect(sql);
+    return result;
+  }
+
+  async executeSelectWithOrigins(
+    sql: string,
+    baseTable: string,
+  ): Promise<{ result: QueryResult; origins: (string | null)[] }> {
+    const client = await this.getClient();
+    const { result, fields } = await this.runSelect(sql);
+
+    const oidResult = await client.query<{ oid: string }>(
+      `SELECT oid FROM pg_class WHERE relname = $1 AND relnamespace = 'public'::regnamespace`,
+      [baseTable],
+    );
+    const baseTableOid = oidResult.rows[0]
+      ? Number(oidResult.rows[0].oid)
+      : null;
+
+    const origins = fields.map((f) =>
+      baseTableOid !== null && f.tableID === baseTableOid ? baseTable : null,
+    );
+    return { result, origins };
+  }
+
+  async updateRow(
+    table: string,
+    primaryKey: PrimaryKeyEntry[],
+    column: string,
+    value: unknown,
+  ): Promise<number> {
+    const client = await this.getClient();
+    const where = primaryKey
+      .map((p, i) => `"${p.column}" = $${i + 2}`)
+      .join(' AND ');
+    const sql = `UPDATE "${table}" SET "${column}" = $1 WHERE ${where}`;
+    const values = [value, ...primaryKey.map((p) => p.value)];
+    const result = await client.query(sql, values);
+    return result.rowCount ?? 0;
   }
 
   async close(): Promise<void> {

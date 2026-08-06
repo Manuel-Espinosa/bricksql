@@ -18,16 +18,32 @@ export interface SavedQuery {
   sql: string
 }
 
+export interface EditableMeta {
+  editable: boolean
+  reason?: string
+  table?: string
+  primaryKey?: string[]
+  /** output (displayed) column name -> physical column name, for non-PK direct-reference columns */
+  editableColumns?: Record<string, string>
+}
+
 export interface QueryResult {
   columns: string[]
   rows: Record<string, unknown>[]
   affectedRows?: number
+  editable?: EditableMeta
 }
 
 export interface TableColumn {
   name: string
   type: string
   nullable: boolean
+  primaryKey: boolean
+}
+
+export interface PrimaryKeyEntry {
+  column: string
+  value: unknown
 }
 
 // Auth
@@ -73,6 +89,15 @@ export const explorerApi = {
 export const queryApi = {
   execute: (connectionId: string, sql: string) =>
     api.post<QueryResult>(`/connections/${connectionId}/query`, { sql }),
+}
+
+// Cell edit (Editable Result)
+export const cellApi = {
+  update: (
+    connectionId: string,
+    data: { table: string; primaryKey: PrimaryKeyEntry[]; column: string; value: unknown },
+  ) =>
+    api.patch<{ affectedRows: number }>(`/connections/${connectionId}/cell`, data),
 }
 
 // AI
