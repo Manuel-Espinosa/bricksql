@@ -1,12 +1,18 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import LoginPage from './pages/LoginPage'
 import ConnectionsPage from './pages/ConnectionsPage'
 import WorkspacePage from './pages/WorkspacePage'
+import SnapshotPage from './pages/SnapshotPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />
+  const location = useLocation()
+  return isAuthenticated ? (
+    <>{children}</>
+  ) : (
+    <Navigate to="/login" replace state={{ from: location.pathname }} />
+  )
 }
 
 export default function App() {
@@ -26,6 +32,14 @@ export default function App() {
         element={
           <PrivateRoute>
             <WorkspacePage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/snapshots/:id"
+        element={
+          <PrivateRoute>
+            <SnapshotPage />
           </PrivateRoute>
         }
       />

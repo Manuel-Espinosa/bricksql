@@ -35,6 +35,13 @@ export class ConnectionsService {
     return updated;
   }
 
+  async setMcpExposed(id: string, exposed: boolean): Promise<ConnectionRecord> {
+    const existing = await this.findOne(id);
+    const updated: ConnectionRecord = { ...existing, mcpExposed: exposed };
+    await this.storage.saveConnection(updated);
+    return updated;
+  }
+
   async remove(id: string): Promise<void> {
     await this.findOne(id);
     await this.storage.deleteConnection(id);

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { connectionsApi, type Connection } from '../api'
 import { useAuth } from '../context/AuthContext'
 import ConnectionForm from '../components/ConnectionForm'
+import McpDialog from '../components/McpDialog'
 
 type Modal = { type: 'create' } | { type: 'edit'; connection: Connection } | null
 
@@ -12,6 +13,7 @@ export default function ConnectionsPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [modal, setModal] = useState<Modal>(null)
+  const [mcpOpen, setMcpOpen] = useState(false)
   const [testingId, setTestingId] = useState<string | null>(null)
   const [testResult, setTestResult] = useState<Record<string, { ok: boolean; message?: string }>>({})
 
@@ -59,12 +61,21 @@ export default function ConnectionsPage() {
         <div className="text-copper-500 text-sm font-medium tracking-widest uppercase">
           brick<span className="text-cream-100">sql</span>
         </div>
-        <button
-          onClick={logout}
-          className="text-brick-500 hover:text-brick-400 text-xs uppercase tracking-widest transition-colors"
-        >
-          logout
-        </button>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setMcpOpen(true)}
+            className="text-brick-400 hover:text-copper-500 text-xs uppercase tracking-widest transition-colors"
+            title="Let AI agents query your databases"
+          >
+            mcp
+          </button>
+          <button
+            onClick={logout}
+            className="text-brick-500 hover:text-brick-400 text-xs uppercase tracking-widest transition-colors"
+          >
+            logout
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 px-4 py-6 max-w-2xl mx-auto w-full">
@@ -161,6 +172,8 @@ export default function ConnectionsPage() {
           </ul>
         )}
       </main>
+
+      {mcpOpen && <McpDialog onClose={() => setMcpOpen(false)} />}
 
       {/* Modal */}
       {modal && (

@@ -12,6 +12,8 @@ export interface ConnectionRecord {
   user: string;
   password: string;
   database?: string;
+  /** MCP-Exposed Connection: opted in to MCP Access. Absent/false = not exposed. */
+  mcpExposed?: boolean;
 }
 
 export interface SavedQueryRecord {

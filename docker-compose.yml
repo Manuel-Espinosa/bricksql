@@ -13,6 +13,8 @@ services:
       PORT: 3000
       NODE_ENV: production
       OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      BRICKSQL_MCP_TOKEN: ${BRICKSQL_MCP_TOKEN:-}
+      BRICKSQL_PUBLIC_URL: ${BRICKSQL_PUBLIC_URL:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped

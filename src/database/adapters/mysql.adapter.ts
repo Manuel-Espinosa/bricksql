@@ -78,9 +78,14 @@ export class MysqlAdapter implements DatabaseAdapter {
 
   private async runSelect(
     sql: string,
+    timeoutMs?: number,
   ): Promise<{ result: QueryResult; fields: mysql.FieldPacket[] }> {
     const conn = await this.getConnection();
-    const [result, fields] = await conn.query({ sql, rowsAsArray: true });
+    const [result, fields] = await conn.query({
+      sql,
+      rowsAsArray: true,
+      ...(timeoutMs ? { timeout: timeoutMs } : {}),
+    });
 
     if (!Array.isArray(result)) {
       const okResult = result as mysql.OkPacket;
@@ -114,6 +119,17 @@ export class MysqlAdapter implements DatabaseAdapter {
   async executeQuery(sql: string): Promise<QueryResult> {
     const { result } = await this.runSelect(sql);
     return result;
+  }
+
+  async executeReadOnly(sql: string, timeoutMs: number): Promise<QueryResult> {
+    const conn = await this.getConnection();
+    await conn.query('START TRANSACTION READ ONLY');
+    try {
+      const { result } = await this.runSelect(sql, timeoutMs);
+      return result;
+    } finally {
+      await conn.query('ROLLBACK').catch(() => undefined);
+    }
   }
 
   async executeSelectWithOrigins(
