@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { StorageService, SavedQueryRecord } from '../storage/storage.service';
 import { ConnectionsService } from '../connections/connections.service';
@@ -29,6 +29,7 @@ export class SavedQueriesService {
     dto: CreateSavedQueryDto,
   ): Promise<SavedQueryRecord> {
     await this.connections.findOne(connectionId);
+    await this.assertNameAvailable(connectionId, dto.name);
     const record: SavedQueryRecord = { id: uuidv4(), connectionId, ...dto };
     await this.storage.saveSavedQuery(record);
     return record;
@@ -40,6 +41,9 @@ export class SavedQueriesService {
     dto: UpdateSavedQueryDto,
   ): Promise<SavedQueryRecord> {
     const existing = await this.findOne(connectionId, id);
+    if (dto.name !== undefined) {
+      await this.assertNameAvailable(connectionId, dto.name, id);
+    }
     const updated: SavedQueryRecord = { ...existing, ...dto };
     await this.storage.saveSavedQuery(updated);
     return updated;
@@ -48,5 +52,22 @@ export class SavedQueriesService {
   async remove(connectionId: string, id: string): Promise<void> {
     await this.findOne(connectionId, id);
     await this.storage.deleteSavedQuery(connectionId, id);
+  }
+
+  // Names are unique per Connection (trimmed, case-insensitive). Legacy
+  // duplicates are left alone; only new/renamed names are checked.
+  private async assertNameAvailable(
+    connectionId: string,
+    name: string,
+    exceptId?: string,
+  ): Promise<void> {
+    const key = name.trim().toLowerCase();
+    const queries = await this.storage.listSavedQueries(connectionId);
+    const clash = queries.some(
+      (q) => q.id !== exceptId && q.name.trim().toLowerCase() === key,
+    );
+    if (clash) {
+      throw new ConflictException(`A saved query named "${name.trim()}" already exists`);
+    }
   }
 }

@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { connectionsApi, queryApi, savedQueriesApi, aiApi, explorerApi, type QueryResult } from '../api'
+import { connectionsApi, queryApi, savedQueriesApi, aiApi, explorerApi, type QueryResult, type SavedQuery } from '../api'
 import TableExplorer from '../components/TableExplorer'
 import ResultsTable from '../components/ResultsTable'
 import BuilderMode from '../components/builder/BuilderMode'
@@ -36,6 +36,11 @@ export default function WorkspacePage() {
   const [saveOpen, setSaveOpen] = useState(false)
   const [saveName, setSaveName] = useState('')
   const [saving, setSaving] = useState(false)
+  // Loaded Query: the Saved Query the Script Buffer is tied to (see CONTEXT.md)
+  const [loadedQuery, setLoadedQuery] = useState<SavedQuery | null>(null)
+  const [saveError, setSaveError] = useState('')
+  const [savedFlash, setSavedFlash] = useState(false)
+  const loadedDirty = !!loadedQuery && activeSql !== loadedQuery.sql
   const [aiPrompt, setAiPrompt] = useState('')
   const [aiGeneratedSql, setAiGeneratedSql] = useState('')
   const scriptEditorDesktopRef = useRef<ScriptEditorHandle>(null)
@@ -128,19 +133,58 @@ export default function WorkspacePage() {
 
   function openSave() {
     setSaveName('')
+    setSaveError('')
     setSaveOpen(true)
     setTimeout(() => saveInputRef.current?.focus(), 0)
   }
 
-  async function saveQuery() {
-    if (!saveName.trim() || !activeSql.trim() || !connectionId) return
+  function afterSave(q: SavedQuery) {
+    queryClient.invalidateQueries({ queryKey: ['saved-queries', connectionId] })
+    setLoadedQuery(q)
+    setSaveOpen(false)
+    setSaveName('')
+    setSaveError('')
+    setDesktopLeft('saved')
+    setSavedFlash(true)
+    setTimeout(() => setSavedFlash(false), 1500)
+  }
+
+  // "save": overwrite the Loaded Query directly, or open the name prompt if none
+  async function saveClick() {
+    if (!loadedQuery || !connectionId || !activeSql.trim()) return openSave()
     setSaving(true)
+    setSaveError('')
     try {
-      await savedQueriesApi.create(connectionId, { name: saveName.trim(), sql: activeSql })
-      queryClient.invalidateQueries({ queryKey: ['saved-queries', connectionId] })
-      setSaveOpen(false)
-      setSaveName('')
-      setDesktopLeft('saved')
+      afterSave(await savedQueriesApi.update(connectionId, loadedQuery.id, { sql: activeSql }))
+    } catch (err) {
+      setSaveError((err as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Name prompt submit ("save as…" or first save). Names are unique per
+  // Connection: an existing name asks for confirmation, then overwrites it.
+  async function saveQuery() {
+    const name = saveName.trim()
+    if (!name || !activeSql.trim() || !connectionId) return
+    setSaving(true)
+    setSaveError('')
+    try {
+      const all = await queryClient.fetchQuery({
+        queryKey: ['saved-queries', connectionId],
+        queryFn: () => savedQueriesApi.list(connectionId),
+        staleTime: 0,
+      })
+      const clash = all.find((q) => q.name.trim().toLowerCase() === name.toLowerCase())
+      if (clash) {
+        if (!window.confirm(`"${clash.name}" already exists. Overwrite it?`)) return
+        afterSave(await savedQueriesApi.update(connectionId, clash.id, { sql: activeSql }))
+      } else {
+        afterSave(await savedQueriesApi.create(connectionId, { name, sql: activeSql }))
+      }
+    } catch (err) {
+      setSaveError((err as Error).message)
     } finally {
       setSaving(false)
     }
@@ -151,7 +195,19 @@ export default function WorkspacePage() {
     if (e.key === 'Escape') setSaveOpen(false)
   }
 
+  function loadSaved(q: SavedQuery) {
+    loadSql(q.sql)
+    setLoadedQuery(q)
+  }
+
+  // Connection change releases the Loaded Query
+  useEffect(() => {
+    setLoadedQuery(null)
+  }, [connectionId])
+
+  // Replaces the buffer with unrelated SQL (Explorer, AI) → releases the Loaded Query
   function loadSql(query: string) {
+    setLoadedQuery(null)
     setScriptSql(query)
     setEditorMode('script')
     setMobileTab('editor')
@@ -225,7 +281,7 @@ export default function WorkspacePage() {
               />
             )}
             {desktopLeft === 'saved' && (
-              <SavedQueriesPanel connectionId={connectionId!} currentSql={activeSql} onLoad={loadSql} />
+              <SavedQueriesPanel connectionId={connectionId!} loadedId={loadedQuery?.id} onLoad={loadSaved} />
             )}
           </div>
         </aside>
@@ -276,13 +332,25 @@ export default function WorkspacePage() {
                 </button>
               </div>
             ) : (
-              <button
-                onClick={openSave}
-                disabled={!activeSql.trim()}
-                className="px-4 py-2 text-xs uppercase tracking-widest text-brick-400 hover:text-brick-300 disabled:text-brick-600 border-l border-brick-800 transition-colors"
-              >
-                save
-              </button>
+              <>
+                {saveError && <span className="px-3 py-2 text-xs text-red-400 max-w-48 truncate" title={saveError}>{saveError}</span>}
+                <button
+                  onClick={saveClick}
+                  disabled={saving || !activeSql.trim()}
+                  className="px-4 py-2 text-xs uppercase tracking-widest text-brick-400 hover:text-brick-300 disabled:text-brick-600 border-l border-brick-800 transition-colors max-w-56 truncate"
+                >
+                  {savedFlash ? 'saved ✓' : <>save{loadedQuery && <span className="normal-case tracking-normal"> · {loadedQuery.name}{loadedDirty ? ' •' : ''}</span>}</>}
+                </button>
+                {loadedQuery && (
+                  <button
+                    onClick={openSave}
+                    disabled={!activeSql.trim()}
+                    className="px-3 py-2 text-xs uppercase tracking-widest text-brick-500 hover:text-brick-400 disabled:text-brick-600 border-l border-brick-800 transition-colors"
+                  >
+                    save as…
+                  </button>
+                )}
+              </>
             )}
             <button
               onClick={runQuery}
@@ -421,6 +489,7 @@ export default function WorkspacePage() {
 
               {/* Save + Run */}
               <div className="border-t border-brick-800 px-3 py-2 shrink-0 flex flex-col gap-2">
+                {saveError && <p className="text-xs text-red-400">{saveError}</p>}
                 {saveOpen && (
                   <div className="flex gap-2">
                     <input
@@ -448,12 +517,21 @@ export default function WorkspacePage() {
                 )}
                 <div className="flex gap-2">
                   <button
-                    onClick={openSave}
-                    disabled={!activeSql.trim()}
-                    className="py-2.5 px-4 text-xs uppercase tracking-widest border border-brick-700 text-brick-400 hover:border-brick-500 hover:text-cream-200 disabled:opacity-40 transition-colors"
+                    onClick={saveClick}
+                    disabled={saving || !activeSql.trim()}
+                    className="py-2.5 px-4 text-xs uppercase tracking-widest border border-brick-700 text-brick-400 hover:border-brick-500 hover:text-cream-200 disabled:opacity-40 transition-colors max-w-[50%] truncate"
                   >
-                    save
+                    {savedFlash ? 'saved ✓' : <>save{loadedQuery && <span className="normal-case tracking-normal"> · {loadedQuery.name}{loadedDirty ? ' •' : ''}</span>}</>}
                   </button>
+                  {loadedQuery && (
+                    <button
+                      onClick={openSave}
+                      disabled={!activeSql.trim()}
+                      className="py-2.5 px-3 text-xs uppercase tracking-widest border border-brick-700 text-brick-500 hover:border-brick-500 disabled:opacity-40 transition-colors"
+                    >
+                      save as…
+                    </button>
+                  )}
                   <button
                     onClick={runQuery}
                     disabled={running || !activeSql.trim()}
@@ -467,7 +545,7 @@ export default function WorkspacePage() {
           )}
 
           {mobileTab === 'saved' && (
-            <SavedQueriesPanel connectionId={connectionId!} currentSql={activeSql} onLoad={loadSql} />
+            <SavedQueriesPanel connectionId={connectionId!} loadedId={loadedQuery?.id} onLoad={loadSaved} />
           )}
         </div>
 
@@ -618,12 +696,12 @@ function AiMode({
 
 function SavedQueriesPanel({
   connectionId,
-  currentSql: _currentSql,
+  loadedId,
   onLoad,
 }: {
   connectionId: string
-  currentSql: string
-  onLoad: (sql: string) => void
+  loadedId?: string
+  onLoad: (q: SavedQuery) => void
 }) {
   const { data: queries = [], isLoading } = useQuery({
     queryKey: ['saved-queries', connectionId],
@@ -647,8 +725,10 @@ function SavedQueriesPanel({
           {queries.map((q) => (
             <li key={q.id} className="border-b border-brick-800/50">
               <button
-                onClick={() => onLoad(q.sql)}
-                className="w-full text-left px-4 py-3 hover:bg-brick-800/30 transition-colors"
+                onClick={() => onLoad(q)}
+                className={`w-full text-left px-4 py-3 hover:bg-brick-800/30 transition-colors ${
+                  q.id === loadedId ? 'bg-brick-800/50 border-l-2 border-copper-500' : ''
+                }`}
               >
                 <div className="text-cream-200 text-xs">{q.name}</div>
                 <div className="text-brick-500 text-xs truncate mt-0.5">{q.sql}</div>
