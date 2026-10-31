@@ -11,6 +11,8 @@ import { EditableResultModule } from './editable-result/editable-result.module';
 import { SavedQueriesModule } from './saved-queries/saved-queries.module';
 import { StorageModule } from './storage/storage.module';
 import { AiModule } from './ai/ai.module';
+import { SnapshotsModule } from './snapshots/snapshots.module';
+import { McpModule } from './mcp/mcp.module';
 
 @Module({
   imports: [
@@ -32,6 +34,8 @@ import { AiModule } from './ai/ai.module';
     EditableResultModule,
     SavedQueriesModule,
     AiModule,
+    SnapshotsModule,
+    McpModule,
   ],
 })
 export class AppModule {}

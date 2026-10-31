@@ -144,6 +144,20 @@ export class PostgresAdapter implements DatabaseAdapter {
     return result;
   }
 
+  async executeReadOnly(sql: string, timeoutMs: number): Promise<QueryResult> {
+    const client = await this.getClient();
+    await client.query('BEGIN READ ONLY');
+    try {
+      await client.query(
+        `SET LOCAL statement_timeout = ${Math.trunc(timeoutMs)}`,
+      );
+      const { result } = await this.runSelect(sql);
+      return result;
+    } finally {
+      await client.query('ROLLBACK').catch(() => undefined);
+    }
+  }
+
   async executeSelectWithOrigins(
     sql: string,
     baseTable: string,

@@ -1,10 +1,11 @@
 import { type FormEvent, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -16,7 +17,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await login(username, password)
-      navigate('/connections')
+      navigate((location.state as { from?: string } | null)?.from ?? '/connections')
     } catch {
       setError('Invalid credentials')
     } finally {

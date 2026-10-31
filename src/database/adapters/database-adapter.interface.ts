@@ -30,6 +30,12 @@ export interface DatabaseAdapter {
   describeTable(table: string, database?: string): Promise<TableColumn[]>;
   executeQuery(sql: string): Promise<QueryResult>;
   /**
+   * Runs a single SELECT inside a READ ONLY transaction that is always rolled
+   * back, with a per-query timeout — layer 2/3 of MCP Access's read-only
+   * defense (ADR-0008).
+   */
+  executeReadOnly(sql: string, timeoutMs: number): Promise<QueryResult>;
+  /**
    * Same execution as executeQuery, but also reports, per output column, the
    * physical table it originates from (null when computed/ambiguous) — used
    * to cross-check the SQL-parser-derived Base Table against driver truth

@@ -71,3 +71,19 @@ _Avoid_: JSON field, JSON cell, structured column
 **Loaded Query**:
 The Saved Query the Script Buffer is currently tied to. A Saved Query becomes the Loaded Query when it is loaded from the saved list or just after a new one is saved. It stops being the Loaded Query when another Saved Query is loaded, a table is tapped in the Table Explorer, the Active Connection changes, or the Saved Query is deleted. Saving while a Loaded Query exists overwrites it; saving with none creates a new Saved Query.
 _Avoid_: current query, open query, active query
+
+**MCP-Exposed Connection**:
+A Connection the user has explicitly opted in to make queryable by external AI agents through the MCP endpoint. Off by default for every Connection, including pre-existing ones. The user toggles exposure for all Connections from a single checklist dialog, not from each Connection's own form. Agents can only see and query MCP-Exposed Connections.
+_Avoid_: shared connection, public connection, enabled connection
+
+**MCP Access**:
+The read-only channel through which external AI agents list MCP-Exposed Connections, read their schema, and run SELECT queries. The agent writes the SQL itself; BrickSQL does not translate natural language on this channel. Authenticated by a dedicated static token, separate from Auth Credentials; absent token means MCP Access is disabled. Never permits statements other than a single SELECT.
+_Avoid_: MCP mode, agent API, AI integration
+
+**Result Snapshot**:
+The full result set of an MCP Access SELECT that returned more rows than the agent receives inline, kept temporarily on the server so the user can open it in the browser. Meant for the human, not the agent: the agent only receives the first rows, the total row count, and a link. Viewed with the same Results Table as any other result, behind the normal login — the MCP token does not grant access to it.
+_Avoid_: export, result file, temp file, dump
+
+**Proposed Query**:
+A SELECT an agent hands to the user through MCP Access instead of running it. Validated like any MCP Access query but never executed: it reaches the user as a link that opens the Workspace with the SQL loaded in the Script Buffer, for the user to review and run. Used when the user wants the query itself rather than its result.
+_Avoid_: suggested query, draft query

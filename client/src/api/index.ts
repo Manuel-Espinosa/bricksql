@@ -9,6 +9,7 @@ export interface Connection {
   user: string
   password: string
   database?: string
+  mcpExposed?: boolean
 }
 
 export interface SavedQuery {
@@ -126,4 +127,42 @@ export const savedQueriesApi = {
     ),
   delete: (connectionId: string, id: string) =>
     api.delete<void>(`/connections/${connectionId}/saved-queries/${id}`),
+}
+
+// MCP Access
+export interface McpSettings {
+  /** False when BRICKSQL_MCP_TOKEN is not configured on the server. */
+  enabled: boolean
+  /** BRICKSQL_PUBLIC_URL when configured; otherwise null (fall back to window.location.origin). */
+  publicUrl: string | null
+  connections: {
+    id: string
+    name: string
+    engine: 'mysql' | 'postgres'
+    database: string | null
+    mcpExposed: boolean
+  }[]
+}
+
+export const mcpApi = {
+  settings: () => api.get<McpSettings>('/mcp-settings'),
+  setExposed: (id: string, exposed: boolean) =>
+    api.put<{ id: string; mcpExposed: boolean }>(
+      `/mcp-settings/connections/${id}`,
+      { exposed },
+    ),
+}
+
+// Result Snapshots (full results of MCP Access queries)
+export interface ResultSnapshot extends QueryResult {
+  id: string
+  connectionName: string
+  sql: string
+  createdAt: string
+  expiresAt: string
+  capped: boolean
+}
+
+export const snapshotsApi = {
+  get: (id: string) => api.get<ResultSnapshot>(`/snapshots/${id}`),
 }

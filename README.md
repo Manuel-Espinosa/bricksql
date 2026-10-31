@@ -79,6 +79,35 @@ Copy `.env.example` to `.env` and fill in the required values.
 | `PORT`              | no       | Host port for the container (default: `3000`) — production only; dev mode uses `PORT_BACK` / `PORT_FRONT` / `PORT_DB` |
 | `DATA_DIR`          | no       | Path where JSON data is stored (default: `/data`)    |
 | `OLLAMA_URL`        | no       | Ollama base URL to enable AI mode (e.g. `http://host.docker.internal:11434`) |
+| `BRICKSQL_MCP_TOKEN` | no      | Bearer token that enables MCP Access for AI agents (see below). Unset = disabled |
+| `BRICKSQL_PUBLIC_URL` | no     | Base URL used in links to large MCP results (default: the request's host) |
+
+### MCP Access (AI agents)
+
+**1. Generate a token.** It is any long random string you invent — BrickSQL does not issue one. Generate it on any machine:
+
+```bash
+openssl rand -hex 32
+# no openssl? node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+**2. Set it on the server.** Add it to the `.env` next to `docker-compose.yml` and recreate the container:
+
+```bash
+echo "BRICKSQL_MCP_TOKEN=<paste-the-token>" >> .env
+docker compose up -d
+```
+
+Keep a copy: the server never shows it again, and each agent needs it in its `Authorization` header. To rotate it, change the value, restart, and update your agents. To disable MCP Access, remove the variable.
+
+**3. Pick connections and connect an agent.** Open the **mcp** dialog on the Connections page: tick the Connections agents may query and copy the ready-made command, e.g.
+
+```bash
+claude mcp add --transport http bricksql http://<server>:3000/api/mcp \
+  --header "Authorization: Bearer <BRICKSQL_MCP_TOKEN>"
+```
+
+The agent writes the SQL itself using five tools (`list_connections`, `list_tables`, `describe_tables`, `run_select`, `propose_query`). Ask it to "give me the query" and it uses `propose_query`: nothing is executed, and you get a link that opens BrickSQL with the SQL loaded in the editor for you to run. Access is strictly read-only: a single `SELECT`, run in a read-only transaction with a 15 s timeout. Agents see the first 100 rows; larger results are kept for 24 h and can be opened by you (after logging in) via a link in the response.
 
 ## Running for development
 

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { connectionsApi, queryApi, savedQueriesApi, aiApi, explorerApi, type QueryResult, type SavedQuery } from '../api'
 import TableExplorer from '../components/TableExplorer'
@@ -14,6 +14,7 @@ type Panel = 'explorer' | 'results'
 
 export default function WorkspacePage() {
   const { id: connectionId } = useParams<{ id: string }>()!
+  const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const { logout } = useAuth()
 
@@ -213,6 +214,15 @@ export default function WorkspacePage() {
     setMobileTab('editor')
     setTimeout(() => activeScriptEditor()?.focus(), 0)
   }
+
+  // A Proposed Query (MCP agent link) lands in the Script Buffer — never auto-run.
+  useEffect(() => {
+    const proposed = searchParams.get('sql')
+    if (!proposed) return
+    loadSql(proposed)
+    setSearchParams({}, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const hasDatabase = !!connection?.database
 
